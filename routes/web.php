@@ -28,13 +28,48 @@ use Illuminate\Http\Request;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
-|--------------------------------------------------------------------------
+use Illuminate\Support\Facades\DB;
+
+try {
+    // Start transaction explicitly
+    DB::beginTransaction();
+    
+    // Disable foreign key checks
+    DB::statement('SET FOREIGN_KEY_CHECKS=0');
+    
+    // Delete in proper order (child tables first)
+    DB::table('user_notifications')->truncate();
+    DB::table('user_infos')->truncate();
+    DB::table('users')->truncate();
+    
+    // Reset auto-increment counters
+    DB::statement('ALTER TABLE user_notifications AUTO_INCREMENT = 1');
+    DB::statement('ALTER TABLE user_infos AUTO_INCREMENT = 1');
+    DB::statement('ALTER TABLE users AUTO_INCREMENT = 1');
+    
+    // Re-enable foreign key checks
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    
+    // Commit transaction
+    DB::commit();
+    
+    return "All user data deleted successfully";
+} catch (\Exception $e) {
+    // Rollback if error occurs
+    DB::rollBack();
+    // Ensure foreign key checks are re-enabled even on error
+    DB::statement('SET FOREIGN_KEY_CHECKS=1');
+    return "Error: " . $e->getMessage();
+}|--------------------------------------------------------------------------
 |
 | Here is where you can register web routes for your application. These
 | routes are loaded by the RouteServiceProvider within a group which
 | contains the "web" middleware group. Now create something great!
 |
 */
+
+
+
 Route::get('test_email', function() {
 
     $exists = User::where('email',request()->email)->exists();  

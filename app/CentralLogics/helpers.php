@@ -1187,32 +1187,17 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     "image" => (string)$data['image'],
                 ],
                 "android" => [
-                "priority" => "high", // Set high priority for Android
-
                     "notification" => [
-
- "priority" => "high",
-                    "sound" => "notification.wav",
-                    "visibility" => "public",
-                    "notification_priority" => "PRIORITY_HIGH"
                         "channelId" => 'Sofara',
                     ]
                 ],
                 "apns" => [
                     "payload" => [
                         "aps" => [
-                            "sound" => "notification.wav",
-"content-available" => 1,
-                        "priority" => "high"
+                            "sound" => "notification.wav"
                         ]
                     ]
                 ]
-
- "webpush" => [
-                "headers" => [
-                    "Urgency" => "high" // Set high priority for web push
-                ]
-            ]
             ]
         ];
 
@@ -1267,31 +1252,17 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         "image" => (string)$data['image'],
                     ],
                     "android" => [
-                    "priority" => "high",
-
                         "notification" => [
-
-  "priority" => "high",
-                        "sound" => "notification.wav",
-                        "visibility" => "public",
-                        "notification_priority" => "PRIORITY_HIGH"
                             "channelId" => 'Sofara',
                         ]
                     ],
                     "apns" => [
                         "payload" => [
                             "aps" => [
-                                "sound" => "notification.wav",
- "content-available" => 1,
-                            "priority" => "high"
+                                "sound" => "notification.wav"
                             ]
                         ]
-                    ],
- "webpush" => [
-                    "headers" => [
-                        "Urgency" => "high"
                     ]
-                ]
                 ]
             ];
         } else {
@@ -1313,33 +1284,17 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         "image" => (string)$data['image'],
                     ],
                     "android" => [
-                    "priority" => "high",
                         "notification" => [
                             "channelId" => 'Sofara',
-"priority" => "high",
-                        "sound" => "notification.wav",
-                        "visibility" => "public",
-                        "notification_priority" => "PRIORITY_HIGH"
-
                         ]
                     ],
                     "apns" => [
-"headers" => [
-                        "apns-priority" => "10"
-                    ],
                         "payload" => [
                             "aps" => [
-                                "sound" => "notification.wav",
-"content-available" => 1,
-                            "priority" => "high"
+                                "sound" => "notification.wav"
                             ]
                         ]
-                    ],
-"webpush" => [
-                    "headers" => [
-                        "Urgency" => "high"
                     ]
-                ],
                 ]
             ];
         }
@@ -4297,4 +4252,3 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $activationMode == 1 && $driveMondBaseUrl != null && $driveMondToken != null && $systemSelfToken != null;
     }
 }
-
