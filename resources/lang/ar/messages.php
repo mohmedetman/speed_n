@@ -6193,4 +6193,6 @@ Smartly or Earn. ',
   'سبيد دووم' => 'سبيد دووم',
   'The code has already been taken.' => 'The code has already been taken.',
   'You_are_not_eligible_for_this_coupon' => 'You are not eligible for this coupon',
+  'لم يتم السحب' => 'لم يتم السحب',
+  'Main_Category' => 'Main Category',
 );
