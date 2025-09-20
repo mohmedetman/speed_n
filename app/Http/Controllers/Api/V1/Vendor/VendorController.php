@@ -749,7 +749,7 @@ class VendorController extends Controller
         $offset=$request->offset?$request->offset:1;
 
         $type = $request->query('type', 'all');
-       dd($request->category);
+
         $paginator = Item::
              with('components')
             ->with('tags')->type($type)
