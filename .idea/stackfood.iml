@@ -35,6 +35,8 @@
       <excludeFolder url="file://$MODULE_DIR$/storage/debugbar" />
       <excludeFolder url="file://$MODULE_DIR$/storage/framework" />
       <excludeFolder url="file://$MODULE_DIR$/storage/tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/vendor/cuyz/valinor" />
+      <excludeFolder url="file://$MODULE_DIR$/vendor/php-debugbar/php-debugbar" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

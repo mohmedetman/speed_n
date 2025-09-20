@@ -756,8 +756,10 @@ class VendorController extends Controller
             ->Approved()
             ->where('store_id', $request['vendor']->stores[0]->id)
             ->latest()
-            ->when($request->category, function ($query) use ($request) {
-                $query->where('category_id', $request->category);
+            ->when($request->category_id, function ($query) use ($request) {
+//                $categoryId = json_decode($request->category_id)[0] ;
+//                return $query->whereJsonContains('category_ids', ['id' =>  $categoryId]);
+                return $query->where('category_ids', 'LIKE', '%"' . $request->category_id . '"%');
             })
             ->when($request->q, function ($query) use ($request) {
                 $query->where('name', 'LIKE', '%' . $request->q . '%');
