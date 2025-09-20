@@ -756,6 +756,9 @@ class VendorController extends Controller
             ->Approved()
             ->where('store_id', $request['vendor']->stores[0]->id)
             ->latest()
+            ->when($request->category, function ($query) use ($request) {
+                $query->where('category_id', $request->category);
+            })
             ->paginate($limit, ['*'], 'page', $offset);
         $data = [
             'total_size' => $paginator->total(),
