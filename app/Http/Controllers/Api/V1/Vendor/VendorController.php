@@ -759,6 +759,9 @@ class VendorController extends Controller
             ->when($request->category, function ($query) use ($request) {
                 $query->where('category_id', $request->category);
             })
+            ->when($request->q, function ($query) use ($request) {
+                $query->where('name', 'LIKE', '%' . $request->q . '%');
+            })
             ->paginate($limit, ['*'], 'page', $offset);
         $data = [
             'total_size' => $paginator->total(),
