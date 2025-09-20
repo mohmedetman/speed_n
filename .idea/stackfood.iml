@@ -31,6 +31,10 @@
       <excludeFolder url="file://$MODULE_DIR$/vendor/kreait/firebase-php" />
       <excludeFolder url="file://$MODULE_DIR$/vendor/kreait/firebase-tokens" />
       <excludeFolder url="file://$MODULE_DIR$/vendor/rize/uri-template" />
+      <excludeFolder url="file://$MODULE_DIR$/storage/app" />
+      <excludeFolder url="file://$MODULE_DIR$/storage/debugbar" />
+      <excludeFolder url="file://$MODULE_DIR$/storage/framework" />
+      <excludeFolder url="file://$MODULE_DIR$/storage/tmp" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

@@ -481,11 +481,11 @@ class VendorController extends Controller
                     ];
                     Helpers::send_push_notif_to_device($order?->delivery_man?->fcm_token, $data);
                 }
-                
-                
-                
-                
-                
+
+
+
+
+
                 $dm = $order->delivery_man;
                 $dm->current_orders = $dm->current_orders>1?$dm->current_orders-1:0;
                 $dm->save();
@@ -522,7 +522,7 @@ class VendorController extends Controller
         ->where('id', $request['order_id'])
         ->Notpos()
         ->first();
-      
+
         if(!$order){
             return response()->json(['errors'=>[['code'=>'order_id', 'message'=>trans('messages.order_data_not_found')]]],404);
         }
@@ -750,7 +750,16 @@ class VendorController extends Controller
 
         $type = $request->query('type', 'all');
 
-        $paginator = Item::with('components')->with('tags')->type($type)->Approved()->where('store_id', $request['vendor']->stores[0]->id)->latest()->paginate($limit, ['*'], 'page', $offset);
+        $paginator = Item::
+             with('components')
+            ->with('tags')->type($type)
+            ->Approved()
+            ->where('store_id', $request['vendor']->stores[0]->id)
+            ->latest()
+            ->when($request->category, function ($query) use ($request) {
+                $query->where('category_id', $request->category);
+            })
+            ->paginate($limit, ['*'], 'page', $offset);
         $data = [
             'total_size' => $paginator->total(),
             'limit' => $limit,
