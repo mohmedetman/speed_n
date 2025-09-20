@@ -749,16 +749,13 @@ class VendorController extends Controller
         $offset=$request->offset?$request->offset:1;
 
         $type = $request->query('type', 'all');
-
+       dd($request->category);
         $paginator = Item::
              with('components')
             ->with('tags')->type($type)
             ->Approved()
             ->where('store_id', $request['vendor']->stores[0]->id)
             ->latest()
-            ->when($request->category, function ($query) use ($request) {
-                $query->where('category_id', $request->category);
-            })
             ->paginate($limit, ['*'], 'page', $offset);
         $data = [
             'total_size' => $paginator->total(),
