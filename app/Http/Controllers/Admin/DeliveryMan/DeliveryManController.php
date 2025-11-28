@@ -55,9 +55,7 @@ class DeliveryManController extends BaseController
         protected ConversationRepositoryInterface $conversationRepo,
         protected MessageRepositoryInterface $messageRepo,
         protected DeliveryManService $deliveryManService,
-    )
-    {
-    }
+    ) {}
 
     public function index(?Request $request): View|Collection|LengthAwarePaginator|null
     {
@@ -69,21 +67,21 @@ class DeliveryManController extends BaseController
         $deliveryMen = $this->deliveryManRepo->getFilterWiseListWhere(
             zoneId: $zoneId,
             searchValue: $request['search'],
-            filters: ['type' => 'zone_wise','application_status' => 'approved'],
+            filters: ['type' => 'zone_wise', 'application_status' => 'approved'],
             additionalFilter: $request['filter'],
             jobType: $request['job_type'],
-            relations: ['zone','wallet'],
+            relations: ['zone', 'wallet'],
             dataLimit: config('default_pagination')
         );
-        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id'=>$zoneId]) : null;
-        return view(DeliveryManViewPath::LIST[VIEW], compact('deliveryMen','zone'));
+        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id' => $zoneId]) : null;
+        return view(DeliveryManViewPath::LIST[VIEW], compact('deliveryMen', 'zone'));
     }
 
     public function getAddView(): View
     {
         $language = getWebConfig('language');
         $defaultLang = str_replace('_', '-', app()->getLocale());
-        return view(DeliveryManViewPath::ADD[VIEW], compact('language','defaultLang'));
+        return view(DeliveryManViewPath::ADD[VIEW], compact('language', 'defaultLang'));
     }
 
     public function getNewDeliveryManView(Request $request): View
@@ -93,12 +91,12 @@ class DeliveryManController extends BaseController
         $deliveryMen = $this->deliveryManRepo->getZoneWiseListWhere(
             zoneId: $zoneId,
             searchValue: $searchBy,
-            filters: ['type' => 'zone_wise','application_status' => 'pending'],
+            filters: ['type' => 'zone_wise', 'application_status' => 'pending'],
             relations: ['zone'],
             dataLimit: config('default_pagination')
         );
-        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id'=>$zoneId]) : null;
-        return view(DeliveryManViewPath::NEW[VIEW], compact('deliveryMen','zone','searchBy'));
+        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id' => $zoneId]) : null;
+        return view(DeliveryManViewPath::NEW[VIEW], compact('deliveryMen', 'zone', 'searchBy'));
     }
 
     public function getDeniedDeliveryManView(Request $request): View
@@ -108,23 +106,23 @@ class DeliveryManController extends BaseController
         $deliveryMen = $this->deliveryManRepo->getZoneWiseListWhere(
             zoneId: $zoneId,
             searchValue: $searchBy,
-            filters: ['type' => 'zone_wise','application_status' => 'denied'],
+            filters: ['type' => 'zone_wise', 'application_status' => 'denied'],
             relations: ['zone'],
             dataLimit: config('default_pagination')
         );
-        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id'=>$zoneId]) : null;
-        return view(DeliveryManViewPath::DENY[VIEW], compact('deliveryMen','zone','searchBy'));
+        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id' => $zoneId]) : null;
+        return view(DeliveryManViewPath::DENY[VIEW], compact('deliveryMen', 'zone', 'searchBy'));
     }
 
     public function getSearchList(Request $request): JsonResponse
     {
         $deliveryMen = $this->deliveryManRepo->getListWhere(
             searchValue: $request['search'],
-            filters: ['type' => 'zone_wise','application_status' => 'approved'],
+            filters: ['type' => 'zone_wise', 'application_status' => 'approved'],
         );
         return response()->json([
-            'view'=>view(DeliveryManViewPath::SEARCH[VIEW],compact('deliveryMen'))->render(),
-            'count'=>$deliveryMen->count()
+            'view' => view(DeliveryManViewPath::SEARCH[VIEW], compact('deliveryMen'))->render(),
+            'count' => $deliveryMen->count()
         ]);
     }
 
@@ -132,16 +130,26 @@ class DeliveryManController extends BaseController
     {
         $deliveryMen = $this->deliveryManRepo->getFilterWiseListWhere(
             searchValue: $request['search'],
-            filters: ['type' => 'zone_wise','status' => 1],
+            filters: ['type' => 'zone_wise', 'status' => 1],
         );
         return response()->json([
-            'dm'=>$deliveryMen
+            'dm' => $deliveryMen
         ]);
     }
 
     public function add(DeliveryManAddRequest $request): Application|Redirector|RedirectResponse
     {
-        $this->deliveryManRepo->add(data: $this->deliveryManService->getAddData(request: $request));
+        $data = $this->deliveryManService->getAddData(request: $request);
+        $zoneIds = $data['zone_ids'] ?? [];
+        unset($data['zone_ids']); // Remove from data before inserting
+
+        $deliveryMan = $this->deliveryManRepo->add(data: $data);
+
+        // Sync zones to delivery man
+        if (!empty($zoneIds) && $deliveryMan) {
+            $deliveryMan->zones()->sync($zoneIds);
+        }
+
         Toastr::success(translate('messages.deliveryman_added_successfully'));
         return back();
     }
@@ -151,16 +159,26 @@ class DeliveryManController extends BaseController
         $deliveryMan = $this->deliveryManRepo->getFirstWithoutGlobalScopeWhere(params: ['id' => $id]);
         $language = getWebConfig('language');
         $defaultLang = str_replace('_', '-', app()->getLocale());
-        return view(DeliveryManViewPath::UPDATE[VIEW], compact('deliveryMan','language','defaultLang'));
+        return view(DeliveryManViewPath::UPDATE[VIEW], compact('deliveryMan', 'language', 'defaultLang'));
     }
 
     public function update(DeliveryManUpdateRequest $request, $id): Application|Redirector|RedirectResponse
     {
         $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['id' => $id]);
 
-        $deliveryMan = $this->deliveryManRepo->update(id: $id ,data: $this->deliveryManService->getUpdateData(request: $request, deliveryMan: $deliveryMan));
-        if($deliveryMan->userinfo) {
-            $this->userInfoRepo->update(id: $deliveryMan->userinfo->id,data: [
+        $data = $this->deliveryManService->getUpdateData(request: $request, deliveryMan: $deliveryMan);
+        $zoneIds = $data['zone_ids'] ?? [];
+        unset($data['zone_ids']); // Remove from data before updating
+
+        $deliveryMan = $this->deliveryManRepo->update(id: $id, data: $data);
+
+        // Sync zones to delivery man
+        if (!empty($zoneIds) && $deliveryMan) {
+            $deliveryMan->zones()->sync($zoneIds);
+        }
+
+        if ($deliveryMan->userinfo) {
+            $this->userInfoRepo->update(id: $deliveryMan->userinfo->id, data: [
                 'f_name' => $deliveryMan->f_name,
                 'l_name' => $deliveryMan->l_name,
                 'email' => $deliveryMan->email,
@@ -179,72 +197,68 @@ class DeliveryManController extends BaseController
         return back();
     }
 
-    public function updateStatus(Request $request,UserNotificationRepositoryInterface $notificationRepo): RedirectResponse
+    public function updateStatus(Request $request, UserNotificationRepositoryInterface $notificationRepo): RedirectResponse
     {
-        $deliveryMan = $this->deliveryManRepo->update(id: $request['id'] ,data: ['status'=>$request['status']]);
+        $deliveryMan = $this->deliveryManRepo->update(id: $request['id'], data: ['status' => $request['status']]);
 
 
-            if($request['status'] == 0)
-            {   $deliveryMan->auth_token = null;
+        if ($request['status'] == 0) {
+            $deliveryMan->auth_token = null;
 
-                if(isset($deliveryMan->fcm_token) &&  Helpers::getNotificationStatusData('deliveryman','deliveryman_account_block','push_notification_status'))
-                {
-                    $data = [
-                        'title' => translate('messages.suspended'),
-                        'description' => translate('messages.your_account_has_been_suspended'),
-                        'order_id' => '',
-                        'image' => '',
-                        'type'=> 'block'
-                    ];
-                    $this->sendPushNotificationToDevice($deliveryMan->fcm_token, $data);
+            if (isset($deliveryMan->fcm_token) &&  Helpers::getNotificationStatusData('deliveryman', 'deliveryman_account_block', 'push_notification_status')) {
+                $data = [
+                    'title' => translate('messages.suspended'),
+                    'description' => translate('messages.your_account_has_been_suspended'),
+                    'order_id' => '',
+                    'image' => '',
+                    'type' => 'block'
+                ];
+                $this->sendPushNotificationToDevice($deliveryMan->fcm_token, $data);
 
-                    $notificationRepo->add([
-                        'data'=> json_encode($data),
-                        'delivery_man_id'=>$deliveryMan->id,
-                        'created_at'=>now(),
-                        'updated_at'=>now()
-                    ]);
-                }
-                else{
-                    Toastr::warning(translate('messages.push_notification_failed'));
-                }
-            } else{
-                if( Helpers::getNotificationStatusData('deliveryman','deliveryman_account_unblock','push_notification_status') && isset($deliveryMan->fcm_token))
-                {
-                    $data = [
-                        'title' => translate('messages.Account_activation'),
-                        'description' => translate('messages.your_account_has_been_activated'),
-                        'order_id' => '',
-                        'image' => '',
-                        'type'=> 'unblock'
-                    ];
-                    Helpers::send_push_notif_to_device($deliveryMan->fcm_token, $data);
-
-                    DB::table('user_notifications')->insert([
-                        'data'=> json_encode($data),
-                        'delivery_man_id'=>$deliveryMan->id,
-                        'created_at'=>now(),
-                        'updated_at'=>now()
-                    ]);
-                }
+                $notificationRepo->add([
+                    'data' => json_encode($data),
+                    'delivery_man_id' => $deliveryMan->id,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            } else {
+                Toastr::warning(translate('messages.push_notification_failed'));
             }
-            try {
-                if (config('mail.status') && getWebConfigStatus('suspend_mail_status_dm') == '1' &&  $request['status'] == 0 && Helpers::getNotificationStatusData('deliveryman','deliveryman_account_block','mail_status') ) {
-                    Mail::to($deliveryMan['email'])->send(new DmSuspendMail('suspend',$deliveryMan['f_name']));
-                }
-                elseif(config('mail.status') && getWebConfigStatus('unsuspend_mail_status_dm') == '1' &&  $request['status'] != 0 && Helpers::getNotificationStatusData('deliveryman','deliveryman_account_unblock','mail_status')){
-                    Mail::to($deliveryMan['email'])->send(new DmSuspendMail('unsuspend',$deliveryMan['f_name']));
-                }
-            }  catch (Exception) {
-                Toastr::warning(translate('messages.failed_to_send_mail'));
+        } else {
+            if (Helpers::getNotificationStatusData('deliveryman', 'deliveryman_account_unblock', 'push_notification_status') && isset($deliveryMan->fcm_token)) {
+                $data = [
+                    'title' => translate('messages.Account_activation'),
+                    'description' => translate('messages.your_account_has_been_activated'),
+                    'order_id' => '',
+                    'image' => '',
+                    'type' => 'unblock'
+                ];
+                Helpers::send_push_notif_to_device($deliveryMan->fcm_token, $data);
+
+                DB::table('user_notifications')->insert([
+                    'data' => json_encode($data),
+                    'delivery_man_id' => $deliveryMan->id,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
             }
+        }
+        try {
+            if (config('mail.status') && getWebConfigStatus('suspend_mail_status_dm') == '1' &&  $request['status'] == 0 && Helpers::getNotificationStatusData('deliveryman', 'deliveryman_account_block', 'mail_status')) {
+                Mail::to($deliveryMan['email'])->send(new DmSuspendMail('suspend', $deliveryMan['f_name']));
+            } elseif (config('mail.status') && getWebConfigStatus('unsuspend_mail_status_dm') == '1' &&  $request['status'] != 0 && Helpers::getNotificationStatusData('deliveryman', 'deliveryman_account_unblock', 'mail_status')) {
+                Mail::to($deliveryMan['email'])->send(new DmSuspendMail('unsuspend', $deliveryMan['f_name']));
+            }
+        } catch (Exception) {
+            Toastr::warning(translate('messages.failed_to_send_mail'));
+        }
 
         Toastr::success(translate('messages.deliveryman_status_updated'));
         return back();
     }
     public function updateEarning(Request $request): RedirectResponse
     {
-        $this->deliveryManRepo->update(id: $request['id'] ,data: ['earning'=>$request['status']]);
+        $this->deliveryManRepo->update(id: $request['id'], data: ['earning' => $request['status']]);
         Toastr::success(translate('messages.deliveryman_type_updated'));
         return back();
     }
@@ -255,15 +269,15 @@ class DeliveryManController extends BaseController
         $deliveryMen = $this->deliveryManRepo->getZoneWiseListWhere(
             zoneId: $zoneId,
             searchValue: $request['search'],
-            filters: ['type' => 'zone_wise','application_status' => 'approved'],
+            filters: ['type' => 'zone_wise', 'application_status' => 'approved'],
             relations: ['zone']
         );
-        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id'=>$zoneId]) : null;
+        $zone = is_numeric($zoneId) ? $this->zoneRepo->getFirstWhere(params: ['id' => $zoneId]) : null;
 
         $data = [
-            'delivery_men'=>$deliveryMen,
-            'search'=>$request->search??null,
-            'zone'=>is_numeric($zoneId)?$zone['name']:null,
+            'delivery_men' => $deliveryMen,
+            'search' => $request->search ?? null,
+            'zone' => is_numeric($zoneId) ? $zone['name'] : null,
         ];
 
         if ($request['type'] == 'excel') {
@@ -274,17 +288,22 @@ class DeliveryManController extends BaseController
 
     public function getReviewListView(Request $request): View
     {
-        $filter=$request['deliveryman_id'] && is_numeric($request['deliveryman_id'])  ?  ['delivery_man_id' => $request['deliveryman_id'] ] : [];
-        $orderBy=$request['order_by'] && isset($request['order_by']) && in_array($request['order_by'],['asc','desc']) ?  ['col' => 'rating' ,'type' => $request['order_by'] ] : [];
-        $reviews = $this->dmReviewRepo->getListWhereOrder(searchValue: $request['search'],
-        filters:$filter ,relations: ['delivery_man','customer','order'],dataLimit: config('default_pagination') ,orderBy: $orderBy);
+        $filter = $request['deliveryman_id'] && is_numeric($request['deliveryman_id'])  ?  ['delivery_man_id' => $request['deliveryman_id']] : [];
+        $orderBy = $request['order_by'] && isset($request['order_by']) && in_array($request['order_by'], ['asc', 'desc']) ?  ['col' => 'rating', 'type' => $request['order_by']] : [];
+        $reviews = $this->dmReviewRepo->getListWhereOrder(
+            searchValue: $request['search'],
+            filters: $filter,
+            relations: ['delivery_man', 'customer', 'order'],
+            dataLimit: config('default_pagination'),
+            orderBy: $orderBy
+        );
 
-        return view(DeliveryManViewPath::REVIEW_LIST[VIEW],compact('reviews'));
+        return view(DeliveryManViewPath::REVIEW_LIST[VIEW], compact('reviews'));
     }
 
     public function getReviewSearchList(Request $request): JsonResponse
     {
-        $reviews = $this->dmReviewRepo->getListWhere(searchValue: $request['search'],relations: ['delivery_man','customer']);
+        $reviews = $this->dmReviewRepo->getListWhere(searchValue: $request['search'], relations: ['delivery_man', 'customer']);
 
         return response()->json([
             'view' => view(DeliveryManViewPath::REVIEW_SEARCH_LIST[VIEW], compact('reviews'))->render(),
@@ -294,66 +313,58 @@ class DeliveryManController extends BaseController
 
     public function getAllReviewExportList(Request $request): BinaryFileResponse
     {
-        $reviews = $this->dmReviewRepo->getListWhere(searchValue: $request['search'],relations: ['delivery_man','customer']);
+        $reviews = $this->dmReviewRepo->getListWhere(searchValue: $request['search'], relations: ['delivery_man', 'customer']);
         $data = [
-            'reviews'=>$reviews,
-            'search'=>$request->search??null,
+            'reviews' => $reviews,
+            'search' => $request->search ?? null,
         ];
 
         if ($request['type'] == 'excel') {
             return Excel::download(new DeliveryManReviewExport($data), DeliveryMan::REVIEW_EXPORT_XLSX);
         }
         return Excel::download(new DeliveryManReviewExport($data), DeliveryMan::EXPORT_CSV);
-
     }
 
     public function updateReviewStatus(Request $request): RedirectResponse
     {
-        $this->dmReviewRepo->update(id: $request['id'] ,data: ['status'=>$request['status']]);
+        $this->dmReviewRepo->update(id: $request['id'], data: ['status' => $request['status']]);
         Toastr::success(translate('messages.review_visibility_updated'));
         return back();
     }
 
     public function getReviewExportList(Request $request): BinaryFileResponse
     {
-        $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise','id' => $request['id']], relations: ['reviews']);
-        $reviews = $this->dmReviewRepo->getListWhere(searchValue: $request['search'],filters: ['delivery_man_id' => $request['id']]);
+        $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise', 'id' => $request['id']], relations: ['reviews']);
+        $reviews = $this->dmReviewRepo->getListWhere(searchValue: $request['search'], filters: ['delivery_man_id' => $request['id']]);
 
         $data = [
-            'dm'=>$deliveryMan,
-            'reviews'=>$reviews,
-            'search'=>$request->search??null,
+            'dm' => $deliveryMan,
+            'reviews' => $reviews,
+            'search' => $request->search ?? null,
         ];
 
         if ($request['type'] == 'excel') {
             return Excel::download(new SingleDeliveryManReviewExport($data), DeliveryMan::REVIEW_EXPORT_XLSX);
         }
         return Excel::download(new SingleDeliveryManReviewExport($data), DeliveryMan::EXPORT_CSV);
-
     }
 
-    public function getPreview(Request $request, int|string $id, string $tab='info'): View
+    public function getPreview(Request $request, int|string $id, string $tab = 'info'): View
     {
-        $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise','id' => $id], relations: ['reviews']);
-        if($tab == 'info')
-        {
-            $reviews = $this->dmReviewRepo->getListWhere(filters: ['delivery_man_id'=>$id], dataLimit: config('default_pagination'));
+        $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise', 'id' => $id], relations: ['reviews']);
+        if ($tab == 'info') {
+            $reviews = $this->dmReviewRepo->getListWhere(filters: ['delivery_man_id' => $id], dataLimit: config('default_pagination'));
             return view(DeliveryManViewPath::INFO[VIEW], compact('deliveryMan', 'reviews'));
-        }
-        else if($tab == 'transaction')
-        {
+        } else if ($tab == 'transaction') {
             $date = $request->query('date');
             return view(DeliveryManViewPath::TRANSACTION[VIEW], compact('deliveryMan', 'date'));
-        }
-        else if ($tab == 'order_list') {
+        } else if ($tab == 'order_list') {
             $order_lists = Order::where('delivery_man_id', $deliveryMan->id)->paginate(config('default_pagination'));
             return view(DeliveryManViewPath::ORDER_LIST[VIEW], compact('deliveryMan', 'order_lists'));
-        }
-
-        else if ($tab == 'disbursement') {
+        } else if ($tab == 'disbursement') {
             $key = explode(' ', $request['search']);
-            $disbursements=DisbursementDetails::where('delivery_man_id', $deliveryMan->id)
-                ->when(isset($key), function ($q) use ($key){
+            $disbursements = DisbursementDetails::where('delivery_man_id', $deliveryMan->id)
+                ->when(isset($key), function ($q) use ($key) {
                     $q->where(function ($q) use ($key) {
                         foreach ($key as $value) {
                             $q->orWhere('disbursement_id', 'like', "%{$value}%")
@@ -362,36 +373,34 @@ class DeliveryManController extends BaseController
                     });
                 })
                 ->latest()->paginate(config('default_pagination'));
-            return view('admin-views.delivery-man.view.disbursement', compact('deliveryMan','disbursements'));
+            return view('admin-views.delivery-man.view.disbursement', compact('deliveryMan', 'disbursements'));
         }
 
         $user = $this->userInfoRepo->getFirstWhere(params: ['deliveryman_id' => $id]);
-        if($user){
-            $conversations = $this->conversationRepo->getListWithScope(relations: ['sender', 'receiver', 'last_message'],dataLimit: 8, scopes: ['WhereUser' => [$user['id']]] , conversation_with:$request?->conversation_with ?? 'customer' );
-        }else{
+        if ($user) {
+            $conversations = $this->conversationRepo->getListWithScope(relations: ['sender', 'receiver', 'last_message'], dataLimit: 8, scopes: ['WhereUser' => [$user['id']]], conversation_with: $request?->conversation_with ?? 'customer');
+        } else {
             $conversations = [];
         }
 
-        return view(DeliveryManViewPath::CONVERSATION[VIEW], compact('conversations','deliveryMan'));
-
+        return view(DeliveryManViewPath::CONVERSATION[VIEW], compact('conversations', 'deliveryMan'));
     }
 
     public function getEarningListExport(Request $request, OrderTransactionRepositoryInterface $orderTransactionRepo): BinaryFileResponse
     {
-        $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise','id' => $request['id']], relations: ['reviews']);
-        $earnings=$orderTransactionRepo->getDmEarningList(request: $request);
+        $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['type' => 'zone_wise', 'id' => $request['id']], relations: ['reviews']);
+        $earnings = $orderTransactionRepo->getDmEarningList(request: $request);
 
         $data = [
-            'dm'=>$deliveryMan,
-            'earnings'=>$earnings,
-            'date'=>$request->date??null,
+            'dm' => $deliveryMan,
+            'earnings' => $earnings,
+            'date' => $request->date ?? null,
         ];
 
         if ($request['type'] == 'excel') {
             return Excel::download(new DeliveryManEarningExport($data), 'DeliveryManEarnings.xlsx');
         }
         return Excel::download(new DeliveryManEarningExport($data), 'DeliveryManEarnings.csv');
-
     }
 
     public function getDropdownList(Request $request): JsonResponse
@@ -407,13 +416,11 @@ class DeliveryManController extends BaseController
         $cashInHand = 0;
         $balance = 0;
 
-        if($wallet)
-        {
+        if ($wallet) {
             $cashInHand = $wallet->collected_cash;
             $balance = round($wallet->total_earning - $wallet->total_withdrawn - $wallet->pending_withdraw, config('round_up_to_digit'));
         }
-        return response()->json(['cash_in_hand'=>$cashInHand, 'earning_balance'=>$balance]);
-
+        return response()->json(['cash_in_hand' => $cashInHand, 'earning_balance' => $balance]);
     }
 
     public function getConversationList(Request $request): JsonResponse
@@ -421,23 +428,22 @@ class DeliveryManController extends BaseController
         // dd($request->all());
         $user = $this->userInfoRepo->getFirstWhere(params: ['deliveryman_id' => $request['user_id']]);
         $deliveryMan = $this->deliveryManRepo->getFirstWhere(params: ['id' => $request['user_id']]);
-        if($user){
-            $conversations = $this->conversationRepo->getDmConversationList(request: $request,dataLimit: 8 ,user: $user->id);
-        }else{
+        if ($user) {
+            $conversations = $this->conversationRepo->getDmConversationList(request: $request, dataLimit: 8, user: $user->id);
+        } else {
             $conversations = [];
         }
-        $view = view(DeliveryManViewPath::CONVERSATION_LIST[VIEW],compact('conversations','deliveryMan'))->render();
+        $view = view(DeliveryManViewPath::CONVERSATION_LIST[VIEW], compact('conversations', 'deliveryMan'))->render();
 
-        return response()->json(['html'=>$view]);
-
+        return response()->json(['html' => $view]);
     }
 
-    public function getConversationView($conversation_id,$user_id): JsonResponse
+    public function getConversationView($conversation_id, $user_id): JsonResponse
     {
         $conversations = $this->messageRepo->getListWhere(filters: ['conversation_id' => $conversation_id]);
-        $conversation = $this->conversationRepo->getFirstWhere(params: ['id'=>$conversation_id],relations: ['receiver','sender']);
+        $conversation = $this->conversationRepo->getFirstWhere(params: ['id' => $conversation_id], relations: ['receiver', 'sender']);
         $receiver = $conversation['receiver'];
-        $user = $this->userInfoRepo->getFirstWhere(params: ['id'=>$user_id]);
+        $user = $this->userInfoRepo->getFirstWhere(params: ['id' => $user_id]);
         return response()->json([
             'view' => view(DeliveryManViewPath::CONVERSATIONS[VIEW], compact('conversations', 'user', 'receiver'))->render()
         ]);
@@ -445,36 +451,36 @@ class DeliveryManController extends BaseController
 
     public function updateApplication(Request $request): RedirectResponse
     {
-        $deliveryMan = $this->deliveryManRepo->update(id: $request['id'] ,data: ['application_status'=>$request['status']]);
-        if($request['status'] == 'approved') $this->deliveryManRepo->update(id: $request['id'] ,data: ['status'=>1]);
-        try{
-            if($request['status']=='approved'){
+        $deliveryMan = $this->deliveryManRepo->update(id: $request['id'], data: ['application_status' => $request['status']]);
+        if ($request['status'] == 'approved') $this->deliveryManRepo->update(id: $request['id'], data: ['status' => 1]);
+        try {
+            if ($request['status'] == 'approved') {
 
                 $mail_status = getWebConfigStatus('approve_mail_status_dm');
-                if(config('mail.status') && $mail_status == '1'  && Helpers::getNotificationStatusData('deliveryman','deliveryman_registration_approval','mail_status')){
-                    Mail::to($deliveryMan->email)->send(new DmSelfRegistration('approved',$deliveryMan->f_name.' '.$deliveryMan->l_name));
+                if (config('mail.status') && $mail_status == '1'  && Helpers::getNotificationStatusData('deliveryman', 'deliveryman_registration_approval', 'mail_status')) {
+                    Mail::to($deliveryMan->email)->send(new DmSelfRegistration('approved', $deliveryMan->f_name . ' ' . $deliveryMan->l_name));
                 }
-            }else{
+            } else {
 
                 $mail_status = getWebConfigStatus('deny_mail_status_dm');
-                if(config('mail.status') && $mail_status == '1' && Helpers::getNotificationStatusData('deliveryman','deliveryman_registration_deny','mail_status')){
-                    Mail::to($deliveryMan->email)->send(new DmSelfRegistration('denied', $deliveryMan->f_name.' '.$deliveryMan->l_name));
+                if (config('mail.status') && $mail_status == '1' && Helpers::getNotificationStatusData('deliveryman', 'deliveryman_registration_deny', 'mail_status')) {
+                    Mail::to($deliveryMan->email)->send(new DmSelfRegistration('denied', $deliveryMan->f_name . ' ' . $deliveryMan->l_name));
                 }
             }
-        }catch(Exception $ex){
+        } catch (Exception $ex) {
             info($ex->getMessage());
         }
         Toastr::success(translate('messages.application_status_updated_successfully'));
         return back();
     }
 
-    public function disbursement_export(Request $request,$id,$type)
+    public function disbursement_export(Request $request, $id, $type)
     {
         $key = explode(' ', $request['search']);
 
-        $dm= \App\Models\DeliveryMan::find($id);
-        $disbursements=DisbursementDetails::where('delivery_man_id', $dm->id)
-            ->when(isset($key), function ($q) use ($key){
+        $dm = \App\Models\DeliveryMan::find($id);
+        $disbursements = DisbursementDetails::where('delivery_man_id', $dm->id)
+            ->when(isset($key), function ($q) use ($key) {
                 $q->where(function ($q) use ($key) {
                     foreach ($key as $value) {
                         $q->orWhere('disbursement_id', 'like', "%{$value}%")
@@ -484,10 +490,10 @@ class DeliveryManController extends BaseController
             })
             ->latest()->get();
         $data = [
-            'disbursements'=>$disbursements,
-            'search'=>$request->search??null,
-            'delivery_man'=>$dm->f_name.' '.$dm->l_name,
-            'type'=>'dm',
+            'disbursements' => $disbursements,
+            'search' => $request->search ?? null,
+            'delivery_man' => $dm->f_name . ' ' . $dm->l_name,
+            'type' => 'dm',
         ];
 
         if ($request->type == 'excel') {

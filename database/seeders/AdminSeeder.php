@@ -24,6 +24,7 @@ class AdminSeeder extends Seeder
             'image' => 'def.png',
             'password' => bcrypt(12345678),
             'remember_token' =>Str::random(10),
+            'role_id' => 1,
             'created_at'=>now(),
             'updated_at'=>now()
         ]);

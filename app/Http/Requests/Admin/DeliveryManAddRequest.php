@@ -45,10 +45,12 @@ class DeliveryManAddRequest extends FormRequest
             'identity_number' => 'required|max:30',
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|max:20|unique:delivery_men',
-            'zone_id' => 'required',
+            'zone_id' => 'required|array',
             'earning' => 'required',
             'vehicle_id' => 'required',
-            'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised(),
+            'password' => [
+                'required',
+                Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised(),
                 function ($attribute, $value, $fail) {
                     if (strpos($value, ' ') !== false) {
                         $fail('The :attribute cannot contain white spaces.');

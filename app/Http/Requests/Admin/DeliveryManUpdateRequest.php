@@ -43,11 +43,14 @@ class DeliveryManUpdateRequest extends FormRequest
             'f_name' => 'required|max:100',
             'l_name' => 'nullable|max:100',
             'identity_number' => 'required|max:30',
-            'email' => 'required|unique:delivery_men,email,'.$this->id,
-            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men,phone,'.$this->id,
+            'email' => 'required|unique:delivery_men,email,' . $this->id,
+            'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men,phone,' . $this->id,
             'vehicle_id' => 'required',
+            'zone_id' => 'required|array',
             'earning' => 'required',
-            'password' => ['nullable', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised(),
+            'password' => [
+                'nullable',
+                Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised(),
                 function ($attribute, $value, $fail) {
                     if (strpos($value, ' ') !== false) {
                         $fail('The :attribute cannot contain white spaces.');

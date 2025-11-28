@@ -33,16 +33,13 @@ class DeliveryManLoginController extends Controller
         if (auth('delivery_men')->attempt($data)) {
             $token = Str::random(120);
 
-            if(auth('delivery_men')->user()->application_status != 'approved')
-            {
+            if (auth('delivery_men')->user()->application_status != 'approved') {
                 return response()->json([
                     'errors' => [
                         ['code' => 'auth-003', 'message' => translate('messages.Your_account_is_not_approved_yet.')]
                     ]
                 ], 401);
-            }
-            else if(!auth('delivery_men')->user()->status)
-            {
+            } else if (!auth('delivery_men')->user()->status) {
                 $errors = [];
                 array_push($errors, ['code' => 'auth-003', 'message' => translate('messages.your_account_has_been_suspended')]);
                 return response()->json([
@@ -54,17 +51,17 @@ class DeliveryManLoginController extends Controller
             $delivery_man->auth_token = $token;
             $delivery_man->save();
 
-            $topic = 'restaurant_dm_'.$delivery_man?->store_id;
-            if(isset($delivery_man->zone)){
-                if($delivery_man->vehicle_id){
+            $topic = 'restaurant_dm_' . $delivery_man?->store_id;
+            if (isset($delivery_man->zone)) {
+                if ($delivery_man->vehicle_id) {
 
-                    $topic = 'delivery_man_'.$delivery_man->zone->id.'_'.$delivery_man->vehicle_id;
-                }else{
-                    $topic = $delivery_man->type=='zone_wise'?$delivery_man->zone->deliveryman_wise_topic:'restaurant_dm_'.$delivery_man->store_id;
+                    $topic = 'delivery_man_' . $delivery_man->zone->id . '_' . $delivery_man->vehicle_id;
+                } else {
+                    $topic = $delivery_man->type == 'zone_wise' ? $delivery_man->zone->deliveryman_wise_topic : 'restaurant_dm_' . $delivery_man->store_id;
                 }
-                $zone_topic =  $delivery_man->type=='zone_wise'?$delivery_man->zone->deliveryman_wise_topic.'_push':'';
+                $zone_topic =  $delivery_man->type == 'zone_wise' ? $delivery_man->zone->deliveryman_wise_topic . '_push' : '';
             }
-            return response()->json(['token' => $token, 'topic'=> isset($topic)?$topic:'No_topic_found', 'zone_topic' =>  $zone_topic?? ''], 200);
+            return response()->json(['token' => $token, 'topic' => isset($topic) ? $topic : 'No_topic_found', 'zone_topic' =>  $zone_topic ?? ''], 200);
         } else {
             $errors = [];
             array_push($errors, ['code' => 'auth-001', 'message' => translate('Incorrect_credential,_please_try_again')]);
@@ -83,7 +80,7 @@ class DeliveryManLoginController extends Controller
             'email' => 'required|unique:delivery_men',
             'phone' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:10|unique:delivery_men',
             'password' => ['required', Password::min(8)->mixedCase()->letters()->numbers()->symbols()->uncompromised()],
-            'zone_id' => 'required',
+            'zone_id' => 'required|array',
             'vehicle_id' => 'required',
             'earning' => 'required'
         ], [
@@ -102,7 +99,7 @@ class DeliveryManLoginController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => Helpers::error_processor($validator)],403);
+            return response()->json(['errors' => Helpers::error_processor($validator)], 403);
         }
 
         if ($request->has('image')) {
@@ -115,14 +112,14 @@ class DeliveryManLoginController extends Controller
         if (!empty($request->file('identity_image'))) {
             foreach ($request->identity_image as $img) {
                 $identity_image = Helpers::upload('delivery-man/', 'png', $img);
-                array_push($id_img_names, ['img'=>$identity_image, 'storage'=> Helpers::getDisk()]);
+                array_push($id_img_names, ['img' => $identity_image, 'storage' => Helpers::getDisk()]);
             }
             $identity_image = json_encode($id_img_names);
         } else {
             $identity_image = json_encode([]);
         }
 
-        $dm = New DeliveryMan();
+        $dm = new DeliveryMan();
         $dm->f_name = $request->f_name;
         $dm->l_name = $request->l_name;
         $dm->email = $request->email;
@@ -135,22 +132,26 @@ class DeliveryManLoginController extends Controller
         $dm->status = 0;
         $dm->active = 0;
         $dm->application_status = 'pending';
-        $dm->zone_id = $request->zone_id;
+        $dm->zone_id = $request->zone_id[0] ?? 0;
         $dm->earning = $request->earning;
         $dm->password = bcrypt($request->password);
 
         $dm->save();
-        try{
-            $admin= Admin::where('role_id', 1)->first();
+
+        if ($request->has('zone_id')) {
+            $dm->zones()->sync($request->zone_id);
+        }
+        try {
+            $admin = Admin::where('role_id', 1)->first();
             $mail_status = Helpers::get_mail_status('registration_mail_status_dm');
-            if(config('mail.status') && $mail_status == '1' && Helpers::getNotificationStatusData('deliveryman','deliveryman_registration','mail_status')){
-                Mail::to($request->email)->send(new \App\Mail\DmSelfRegistration('pending', $dm->f_name.' '.$dm->l_name));
+            if (config('mail.status') && $mail_status == '1' && Helpers::getNotificationStatusData('deliveryman', 'deliveryman_registration', 'mail_status')) {
+                Mail::to($request->email)->send(new \App\Mail\DmSelfRegistration('pending', $dm->f_name . ' ' . $dm->l_name));
             }
             $mail_status = Helpers::get_mail_status('dm_registration_mail_status_admin');
-            if(config('mail.status') && $mail_status == '1' && Helpers::getNotificationStatusData('admin','deliveryman_self_registration','mail_status')){
-                Mail::to($admin['email'])->send(new \App\Mail\DmRegistration('pending', $dm->f_name.' '.$dm->l_name));
+            if (config('mail.status') && $mail_status == '1' && Helpers::getNotificationStatusData('admin', 'deliveryman_self_registration', 'mail_status')) {
+                Mail::to($admin['email'])->send(new \App\Mail\DmRegistration('pending', $dm->f_name . ' ' . $dm->l_name));
             }
-        }catch(\Exception $ex){
+        } catch (\Exception $ex) {
             info($ex->getMessage());
         }
 

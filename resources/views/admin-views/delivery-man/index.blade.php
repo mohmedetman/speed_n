@@ -98,10 +98,8 @@
                                                 data-original-title="{{ translate('messages.Required.') }}"> *
                                             </span>
                                         </label>
-                                        <select name="zone_id" class="form-control js-select2-custom" required
-                                            data-placeholder="{{ translate('messages.select_zone') }}">
-                                            <option value="" readonly="true" hidden="true">
-                                                {{ translate('messages.select_zone') }}</option>
+                                        <select name="zone_id[]" class="form-control js-select2-custom" required multiple
+                                            data-placeholder="{{ translate('messages.select_zones') }}">
                                             @foreach (\App\Models\Zone::all() as $zone)
                                                 @if (isset(auth('admin')->user()->zone_id))
                                                     @if (auth('admin')->user()->zone_id == $zone->id)

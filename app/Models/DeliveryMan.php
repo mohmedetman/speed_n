@@ -17,13 +17,13 @@ class DeliveryMan extends Authenticatable
 
     protected $casts = [
         'zone_id' => 'integer',
-        'status'=>'boolean',
-        'active'=>'integer',
-        'available'=>'integer',
-        'earning'=>'float',
-        'store_id'=>'integer',
-        'current_orders'=>'integer',
-        'vehicle_id'=>'integer',
+        'status' => 'boolean',
+        'active' => 'integer',
+        'available' => 'integer',
+        'earning' => 'float',
+        'store_id' => 'integer',
+        'current_orders' => 'integer',
+        'vehicle_id' => 'integer',
     ];
 
     protected $hidden = [
@@ -31,19 +31,19 @@ class DeliveryMan extends Authenticatable
         'auth_token',
     ];
 
-    protected $appends = ['image_full_url','identity_image_full_url'];
+    protected $appends = ['image_full_url', 'identity_image_full_url'];
     public function total_canceled_orders()
     {
-        return $this->hasMany(Order::class)->where('order_status','canceled');
+        return $this->hasMany(Order::class)->where('order_status', 'canceled');
     }
     public function total_ongoing_orders()
     {
-        return $this->hasMany(Order::class)->whereIn('order_status',['handover','picked_up']);
+        return $this->hasMany(Order::class)->whereIn('order_status', ['handover', 'picked_up']);
     }
 
     public function userinfo()
     {
-        return $this->hasOne(UserInfo::class,'deliveryman_id', 'id');
+        return $this->hasOne(UserInfo::class, 'deliveryman_id', 'id');
     }
 
     public function vehicle()
@@ -68,7 +68,7 @@ class DeliveryMan extends Authenticatable
 
     public function todays_earning()
     {
-        return $this->hasMany(OrderTransaction::class)->whereDate('created_at',now());
+        return $this->hasMany(OrderTransaction::class)->whereDate('created_at', now());
     }
 
     public function this_week_earning()
@@ -83,12 +83,12 @@ class DeliveryMan extends Authenticatable
 
     public function todaysorders()
     {
-        return $this->hasMany(Order::class)->whereDate('accepted',now());
+        return $this->hasMany(Order::class)->whereDate('accepted', now());
     }
 
     public function total_delivered_orders()
     {
-        return $this->hasMany(Order::class)->where('order_status','delivered');
+        return $this->hasMany(Order::class)->where('order_status', 'delivered');
     }
 
     public function this_week_orders()
@@ -111,6 +111,14 @@ class DeliveryMan extends Authenticatable
         return $this->belongsTo(Zone::class);
     }
 
+    public function zones()
+    {
+        return $this->belongsToMany(Zone::class, 'delivery_man_zones')
+            ->withPivot('is_active')
+            ->withTimestamps()
+            ->wherePivot('is_active', true);
+    }
+
     public function reviews()
     {
         return $this->hasMany(DMReview::class);
@@ -118,7 +126,7 @@ class DeliveryMan extends Authenticatable
 
     public function disbursement_method()
     {
-        return $this->hasOne(DisbursementWithdrawalMethod::class)->where('is_default',1);
+        return $this->hasOne(DisbursementWithdrawalMethod::class)->where('is_default', 1);
     }
 
     public function rating()
@@ -130,11 +138,11 @@ class DeliveryMan extends Authenticatable
 
     public function scopeActive($query)
     {
-        return $query->where('active', 1)->where('application_status','approved');
+        return $query->where('active', 1)->where('application_status', 'approved');
     }
     public function scopeInActive($query)
     {
-        return $query->where('active', 0)->where('application_status','approved');
+        return $query->where('active', 0)->where('application_status', 'approved');
     }
 
     public function scopeEarning($query)
@@ -144,42 +152,44 @@ class DeliveryMan extends Authenticatable
 
     public function scopeAvailable($query)
     {
-        return $query->where('current_orders', '<' ,config('dm_maximum_orders')??1);
+        return $query->where('current_orders', '<', config('dm_maximum_orders') ?? 1);
     }
 
     public function scopeUnavailable($query)
     {
-        return $query->where('current_orders', '>' ,config('dm_maximum_orders')??1);
+        return $query->where('current_orders', '>', config('dm_maximum_orders') ?? 1);
     }
 
     public function scopeZonewise($query)
     {
-        return $query->where('type','zone_wise');
+        return $query->where('type', 'zone_wise');
     }
 
-    public function getImageFullUrlAttribute(){
+    public function getImageFullUrlAttribute()
+    {
         $value = $this->image;
         if (count($this->storage) > 0) {
             foreach ($this->storage as $storage) {
                 if ($storage['key'] == 'image') {
-                    return Helpers::get_full_url('delivery-man',$value,$storage['value']);
+                    return Helpers::get_full_url('delivery-man', $value, $storage['value']);
                 }
             }
         }
 
-        return Helpers::get_full_url('delivery-man',$value,'public');
+        return Helpers::get_full_url('delivery-man', $value, 'public');
     }
-    public function getIdentityImageFullUrlAttribute(){
+    public function getIdentityImageFullUrlAttribute()
+    {
         $images = [];
         $value = is_array($this->identity_image)
             ? $this->identity_image
             : ($this->identity_image && is_string($this->identity_image) && $this->isValidJson($this->identity_image)
                 ? json_decode($this->identity_image, true)
                 : []);
-        if ($value){
-            foreach ($value as $item){
-                $item = is_array($item)?$item:(is_object($item) && get_class($item) == 'stdClass' ? json_decode(json_encode($item), true):['img' => $item, 'storage' => 'public']);
-                $images[] = Helpers::get_full_url('delivery-man',$item['img'],$item['storage']);
+        if ($value) {
+            foreach ($value as $item) {
+                $item = is_array($item) ? $item : (is_object($item) && get_class($item) == 'stdClass' ? json_decode(json_encode($item), true) : ['img' => $item, 'storage' => 'public']);
+                $images[] = Helpers::get_full_url('delivery-man', $item['img'], $item['storage']);
             }
         }
 
@@ -209,7 +219,7 @@ class DeliveryMan extends Authenticatable
     {
         parent::boot();
         static::saved(function ($model) {
-            if($model->isDirty('image')){
+            if ($model->isDirty('image')) {
                 $value = Helpers::getDisk();
 
                 DB::table('storages')->updateOrInsert([
@@ -223,6 +233,5 @@ class DeliveryMan extends Authenticatable
                 ]);
             }
         });
-
     }
 }

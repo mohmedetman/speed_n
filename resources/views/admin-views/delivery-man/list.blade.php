@@ -147,13 +147,13 @@
                             <td>
                                 <a class="deco-none" href="tel:{{$dm['phone']}}">{{$dm['phone']}}</a>
                             </td>
-                            <td>
-                                @if($dm->zone)
-                                <label class="text--title font-medium mb-0">{{$dm->zone->name}}</label>
-                                @else
-                                <label class="text--title font-medium mb-0">{{translate('messages.zone_deleted')}}</label>
-                                @endif
-                            </td>
+                           <td>
+    @if($dm->zones->count())
+        {{ $dm->zones->pluck('name')->join(', ') }}
+    @else
+        {{ translate('messages.zone_deleted') }}
+    @endif
+</td>
                             <td>
                                 <a class="deco-none" href="{{route('admin.users.delivery-man.preview',['id'=> $dm['id'],'tab' => 'transaction' ])}}">{{count($dm['order_transaction'])}}</a>
                             </td>

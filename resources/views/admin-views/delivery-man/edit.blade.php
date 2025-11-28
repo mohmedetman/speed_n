@@ -87,14 +87,19 @@
                             data-original-title="{{ translate('messages.Required.')}}"> *
                             </span>
                                 </label>
-                                        <select name="zone_id" class="form-control  js-select2-custom">
+                                        <select name="zone_id[]" class="form-control  js-select2-custom" multiple 
+                                            data-placeholder="{{ translate('messages.select_zones') }}">
                                         @foreach(\App\Models\Zone::all() as $zone)
+                                            @php
+                                                $selectedZones = $deliveryMan->zones->pluck('id')->toArray();
+                                                $isSelected = in_array($zone->id, $selectedZones) || $zone->id == $deliveryMan->zone_id;
+                                            @endphp
                                             @if(isset(auth('admin')->user()->zone_id))
                                                 @if(auth('admin')->user()->zone_id == $zone->id)
-                                                    <option value="{{$zone->id}}" {{$zone->id == $deliveryMan->zone_id?'selected':''}}>{{$zone->name}}</option>
+                                                    <option value="{{$zone->id}}" {{$isSelected ?'selected':''}}>{{$zone->name}}</option>
                                                 @endif
                                             @else
-                                            <option value="{{$zone->id}}" {{$zone->id == $deliveryMan->zone_id?'selected':''}}>{{$zone->name}}</option>
+                                            <option value="{{$zone->id}}" {{$isSelected ?'selected':''}}>{{$zone->name}}</option>
                                             @endif
                                         @endforeach
                                         </select>

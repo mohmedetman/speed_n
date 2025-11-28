@@ -341,7 +341,9 @@
                                         height="35" alt="">
                                     <div class="">
                                         <h6 class="mb-1">{{ translate('messages.Zone') }}</h6>
-                                        <p class="mb-0 font-weight-normal">{{ isset($deliveryMan->zone)?$deliveryMan->zone->name:translate('zone_deleted') }}</p>
+                                        <p class="mb-0 font-weight-normal">
+                                            {{ $deliveryMan->zones->count() ? $deliveryMan->zones->pluck('name')->join(', ') : translate('messages.zone_deleted') }}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

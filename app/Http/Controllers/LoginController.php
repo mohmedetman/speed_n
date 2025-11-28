@@ -85,9 +85,9 @@ class LoginController extends Controller
         $site_direction = $siteDirections[$role];
         $locale = $locals[$role];
         App::setLocale($locale);
-        $custome_recaptcha = new CaptchaBuilder;
-        $custome_recaptcha->build();
-        Session::put('six_captcha', $custome_recaptcha->getPhrase());
+        // $custome_recaptcha = new CaptchaBuilder;
+        // $custome_recaptcha->build();
+        // Session::put('six_captcha', $custome_recaptcha->getPhrase());
 
         $email = null;
         $password = null;
@@ -96,7 +96,7 @@ class LoginController extends Controller
             $password = Crypt::decryptString(Cookie::get('p_token'));
         }
 
-        return view('auth.login', compact('custome_recaptcha', 'email', 'password', 'role', 'site_direction', 'locale'));
+        return view('auth.login', compact( 'email', 'password', 'role', 'site_direction', 'locale'));
     }
 
     public function login_attemp($role, $email, $password, $remember = false)

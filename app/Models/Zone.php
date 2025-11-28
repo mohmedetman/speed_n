@@ -75,7 +75,8 @@ class Zone extends Model
         return $this->morphMany(Translation::class, 'translationable');
     }
 
-    public function getNameAttribute($value){
+    public function getNameAttribute($value)
+    {
         if (count($this->translations) > 0) {
             foreach ($this->translations as $translation) {
                 if ($translation['key'] == 'name') {
@@ -87,7 +88,8 @@ class Zone extends Model
         return $value;
     }
 
-    public function getDisplayNameAttribute($value){
+    public function getDisplayNameAttribute($value)
+    {
         if (count($this->translations) > 0) {
             foreach ($this->translations as $translation) {
                 if ($translation['key'] == 'display_name') {
@@ -109,6 +111,14 @@ class Zone extends Model
         return $this->hasMany(DeliveryMan::class);
     }
 
+    public function assignedDeliveryMen()
+    {
+        return $this->belongsToMany(DeliveryMan::class, 'delivery_man_zone')
+            ->withPivot('is_active')
+            ->withTimestamps()
+            ->wherePivot('is_active', true);
+    }
+
     public function orders(): HasManyThrough
     {
         return $this->hasManyThrough(Order::class, Store::class);
@@ -125,7 +135,8 @@ class Zone extends Model
         return $query->where('status', '=', 1);
     }
 
-    public function scopeContains($query,$abc){
+    public function scopeContains($query, $abc)
+    {
         return $query->whereRaw("ST_Distance_Sphere(coordinates, POINT({$abc}))");
     }
 
@@ -134,7 +145,7 @@ class Zone extends Model
         static::addGlobalScope(new ZoneScope);
 
         static::addGlobalScope('translate', function (Builder $builder) {
-            $builder->with(['translations' => function($query){
+            $builder->with(['translations' => function ($query) {
                 return $query->where('locale', app()->getLocale());
             }]);
         });
@@ -142,7 +153,7 @@ class Zone extends Model
 
     public function modules(): BelongsToMany
     {
-        return $this->belongsToMany(Module::class)->withPivot(['per_km_shipping_charge','minimum_shipping_charge','maximum_shipping_charge','maximum_cod_order_amount'])->using('App\Models\ModuleZone');
+        return $this->belongsToMany(Module::class)->withPivot(['per_km_shipping_charge', 'minimum_shipping_charge', 'maximum_shipping_charge', 'maximum_cod_order_amount'])->using('App\Models\ModuleZone');
     }
 
     public static function query(): Builder
