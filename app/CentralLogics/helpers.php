@@ -57,7 +57,7 @@ use App\Traits\NotificationDataSetUpTrait;
 
 class Helpers
 {
-    use PaymentGatewayTrait , NotificationDataSetUpTrait;
+    use PaymentGatewayTrait, NotificationDataSetUpTrait;
     public static function error_processor($validator)
     {
         $err_keeper = [];
@@ -102,28 +102,34 @@ class Helpers
 
     public static function address_data_formatting($data)
     {
-        foreach ($data as $key=>$item) {
+        foreach ($data as $key => $item) {
             $data[$key]['zone_ids'] = array_column(Zone::query()->whereContains('coordinates', new Point($item->latitude, $item->longitude, POINT_SRID))->latest()->get(['id'])->toArray(), 'id');
         }
         return $data;
     }
 
-    public static function cart_product_data_formatting($data, $selected_variation, $selected_addons,
-                                                        $selected_addon_quantity,$trans = false, $local = 'en',$components=null)
-    {
+    public static function cart_product_data_formatting(
+        $data,
+        $selected_variation,
+        $selected_addons,
+        $selected_addon_quantity,
+        $trans = false,
+        $local = 'en',
+        $components = null
+    ) {
         $variations = [];
         $categories = [];
-        $category_ids = gettype($data['category_ids']) == 'array' ? $data['category_ids'] : json_decode($data['category_ids'],true);
+        $category_ids = gettype($data['category_ids']) == 'array' ? $data['category_ids'] : json_decode($data['category_ids'], true);
         foreach ($category_ids as $value) {
-            $category_name = Category::where('id',$value['id'])->pluck('name');
-            $categories[] = ['id' => (string)$value['id'], 'position' => $value['position'], 'name'=>data_get($category_name,'0','NA')];
+            $category_name = Category::where('id', $value['id'])->pluck('name');
+            $categories[] = ['id' => (string)$value['id'], 'position' => $value['position'], 'name' => data_get($category_name, '0', 'NA')];
         }
         $data['category_ids'] = $categories;
-        $attributes = gettype($data['attributes']) == 'array' ? $data['attributes'] : json_decode($data['attributes'],true);
+        $attributes = gettype($data['attributes']) == 'array' ? $data['attributes'] : json_decode($data['attributes'], true);
         $data['attributes'] = $attributes;
-        $choice_options = gettype($data['choice_options']) == 'array' ? $data['choice_options'] : json_decode($data['choice_options'],true);
+        $choice_options = gettype($data['choice_options']) == 'array' ? $data['choice_options'] : json_decode($data['choice_options'], true);
         $data['choice_options'] = $choice_options;
-        $add_ons = gettype($data['add_ons']) == 'array' ? $data['add_ons'] : json_decode($data['add_ons'],true);
+        $add_ons = gettype($data['add_ons']) == 'array' ? $data['add_ons'] : json_decode($data['add_ons'], true);
         $data_addons = self::addon_data_formatting(AddOn::whereIn('id', $add_ons)->active()->get(), true, $trans, $local);
         $selected_data = array_combine($selected_addons, $selected_addon_quantity);
         foreach ($data_addons as $addon) {
@@ -137,7 +143,7 @@ class Helpers
             }
         }
         $data['addons'] = $data_addons;
-        $data_variations = gettype($data['variations']) == 'array' ? $data['variations'] : json_decode($data['variations'],true);
+        $data_variations = gettype($data['variations']) == 'array' ? $data['variations'] : json_decode($data['variations'], true);
         foreach ($data_variations as $var) {
             array_push($variations, [
                 'type' => $var['type'],
@@ -166,15 +172,15 @@ class Helpers
             unset($data['end_date']);
         }
         $data['variations'] = $variations;
-        $data_variation = $data['food_variations']?(gettype($data['food_variations']) == 'array' ? $data['food_variations'] : json_decode($data['food_variations'],true)):[];
-        if($data->module->module_type == 'food'){
+        $data_variation = $data['food_variations'] ? (gettype($data['food_variations']) == 'array' ? $data['food_variations'] : json_decode($data['food_variations'], true)) : [];
+        if ($data->module->module_type == 'food') {
             foreach ($selected_variation as $selected_item) {
                 foreach ($data_variation as &$all_item) {
                     if ($selected_item["name"] === $all_item["name"]) {
                         foreach ($all_item["values"] as &$value) {
                             if (in_array($value["label"], $selected_item["values"]["label"])) {
                                 $value["isSelected"] = true;
-                            }else{
+                            } else {
                                 $value["isSelected"] = false;
                             }
                         }
@@ -184,14 +190,14 @@ class Helpers
         }
         $data['food_variations'] = $data_variation;
         $data['store_name'] = $data->store->name;
-        $data['is_campaign'] = $data->store?->campaigns_count>0?1:0;
+        $data['is_campaign'] = $data->store?->campaigns_count > 0 ? 1 : 0;
         $data['module_type'] = $data->module->module_type;
         $data['zone_id'] = $data->store->zone_id;
         $running_flash_sale = FlashSaleItem::Active()->whereHas('flashSale', function ($query) {
             $query->Active()->Running();
         })
             ->where(['item_id' => $data['id']])->first();
-        $data['flash_sale'] =(int) (($running_flash_sale) ? 1 :0);
+        $data['flash_sale'] = (int) (($running_flash_sale) ? 1 : 0);
         $data['stock'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->available_stock : $data['stock'];
         $data['discount'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount : $data['discount'];
         $data['discount_type'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount_type : $data['discount_type'];
@@ -199,15 +205,15 @@ class Helpers
         $data['schedule_order'] = $data->store->schedule_order;
         $data['rating_count'] = (int)($data->rating ? array_sum(json_decode($data->rating, true)) : 0);
         $data['avg_rating'] = (float)($data->avg_rating ? $data->avg_rating : 0);
-        $data['min_delivery_time'] =  (int) explode('-',$data->store->delivery_time)[0] ?? 0;
-        $data['max_delivery_time'] =  (int) explode('-',$data->store->delivery_time)[1] ?? 0;
+        $data['min_delivery_time'] =  (int) explode('-', $data->store->delivery_time)[0] ?? 0;
+        $data['max_delivery_time'] =  (int) explode('-', $data->store->delivery_time)[1] ?? 0;
         $data['common_condition_id'] =  (int) $data->pharmacy_item_details?->common_condition_id ?? 0;
         $data['brand_id'] =  (int) $data->ecommerce_item_details?->brand_id ?? 0;
         $data['is_basic'] =  (int) $data->pharmacy_item_details?->is_basic ?? 0;
         $data['is_prescription_required'] =  (int) $data->pharmacy_item_details?->is_prescription_required ?? 0;
-        $data['halal_tag_status'] =  (int) $data->store->storeConfig?->halal_tag_status??0;
-            $data['components'] = \App\Models\Item::find($data['id'])->components ??[];
-            // dd($data);
+        $data['halal_tag_status'] =  (int) $data->store->storeConfig?->halal_tag_status ?? 0;
+        $data['components'] = \App\Models\Item::find($data['id'])->components ?? [];
+        // dd($data);
 
         unset($data['pharmacy_item_details']);
         unset($data['store']);
@@ -217,7 +223,7 @@ class Helpers
         return $data;
     }
 
-    public static function product_data_formatting($data, $multi_data = false, $trans = false, $local = 'en' , $temp_product=false)
+    public static function product_data_formatting($data, $multi_data = false, $trans = false, $local = 'en', $temp_product = false)
     {
         $storage = [];
         if ($multi_data == true) {
@@ -244,11 +250,11 @@ class Helpers
                     $item['available_date_ends'] = $item->end_date->format('Y-m-d');
                     unset($item['end_date']);
                 }
-                $item['recommended'] =(int) $item->recommended;
+                $item['recommended'] = (int) $item->recommended;
                 $categories = [];
                 foreach (json_decode($item['category_ids']) as $value) {
-                    $category_name = Category::where('id',$value->id)->pluck('name');
-                    $categories[] = ['id' => (string)$value->id, 'position' => $value->position, 'name'=>data_get($category_name,'0','NA')];
+                    $category_name = Category::where('id', $value->id)->pluck('name');
+                    $categories[] = ['id' => (string)$value->id, 'position' => $value->position, 'name' => data_get($category_name, '0', 'NA')];
                 }
                 $item['category_ids'] = $categories;
                 $item['attributes'] = json_decode($item['attributes']);
@@ -262,16 +268,16 @@ class Helpers
                     ]);
                 }
                 $item['variations'] = $variations;
-                $item['food_variations'] = $item['food_variations']?json_decode($item['food_variations'], true):'';
+                $item['food_variations'] = $item['food_variations'] ? json_decode($item['food_variations'], true) : '';
                 $item['module_type'] = $item->module->module_type;
                 $item['store_name'] = $item->store?->name;
-                $item['is_campaign'] = $item->store?->campaigns_count>0?1:0;
+                $item['is_campaign'] = $item->store?->campaigns_count > 0 ? 1 : 0;
                 $item['zone_id'] = $item->store?->zone_id;
                 $running_flash_sale = FlashSaleItem::Active()->whereHas('flashSale', function ($query) {
                     $query->Active()->Running();
                 })
                     ->where(['item_id' => $item['id']])->first();
-                $item['flash_sale'] =(int) ((($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? 1 :0));
+                $item['flash_sale'] = (int) ((($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? 1 : 0));
                 $item['stock'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->available_stock : $item['stock'];
                 $item['discount'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount : $item['discount'];
                 $item['discount_type'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount_type : $item['discount_type'];
@@ -283,14 +289,14 @@ class Helpers
                 $item['unit'] = $item->unit;
                 $item['rating_count'] = (int)($item->rating ? array_sum(json_decode($item->rating, true)) : 0);
                 $item['avg_rating'] = (float)($item->avg_rating ? $item->avg_rating : 0);
-                $item['recommended'] =(int) $item->recommended;
-                $item['min_delivery_time'] =  (int) explode('-',$item->store?->delivery_time)[0] ?? 0;
-                $item['max_delivery_time'] =  (int) explode('-',$item->store?->delivery_time)[1] ?? 0;
+                $item['recommended'] = (int) $item->recommended;
+                $item['min_delivery_time'] =  (int) explode('-', $item->store?->delivery_time)[0] ?? 0;
+                $item['max_delivery_time'] =  (int) explode('-', $item->store?->delivery_time)[1] ?? 0;
                 $item['common_condition_id'] =  (int) $item->pharmacy_item_details?->common_condition_id ?? 0;
                 $item['brand_id'] =  (int) $item->ecommerce_item_details?->brand_id ?? 0;
                 $item['is_basic'] =  (int) $item->pharmacy_item_details?->is_basic ?? 0;
                 $item['is_prescription_required'] =  (int) $item->pharmacy_item_details?->is_prescription_required ?? 0;
-                $item['halal_tag_status'] =  (int) $item->store->storeConfig?->halal_tag_status??0;
+                $item['halal_tag_status'] =  (int) $item->store->storeConfig?->halal_tag_status ?? 0;
 
                 $item->store['self_delivery_system'] = (int) $item->store->sub_self_delivery;
 
@@ -304,8 +310,8 @@ class Helpers
             $variations = [];
             $categories = [];
             foreach (json_decode($data['category_ids']) as $value) {
-                $category_name = Category::where('id',$value->id)->pluck('name');
-                $categories[] = ['id' => (string)$value->id, 'position' => $value->position, 'name'=>data_get($category_name,'0','NA')];
+                $category_name = Category::where('id', $value->id)->pluck('name');
+                $categories[] = ['id' => (string)$value->id, 'position' => $value->position, 'name' => data_get($category_name, '0', 'NA')];
             }
             $data['category_ids'] = $categories;
 
@@ -340,16 +346,16 @@ class Helpers
                 unset($data['end_date']);
             }
             $data['variations'] = $variations;
-            $data['food_variations'] = $data['food_variations']?json_decode($data['food_variations'], true):'';
+            $data['food_variations'] = $data['food_variations'] ? json_decode($data['food_variations'], true) : '';
             $data['store_name'] = $data->store->name;
-            $data['is_campaign'] = $data->store?->campaigns_count>0?1:0;
+            $data['is_campaign'] = $data->store?->campaigns_count > 0 ? 1 : 0;
             $data['module_type'] = $data->module->module_type;
             $data['zone_id'] = $data->store->zone_id;
             $running_flash_sale = FlashSaleItem::Active()->whereHas('flashSale', function ($query) {
                 $query->Active()->Running();
             })
                 ->where(['item_id' => $data['id']])->first();
-            $data['flash_sale'] =(int) (($running_flash_sale) ? 1 :0);
+            $data['flash_sale'] = (int) (($running_flash_sale) ? 1 : 0);
             $data['stock'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->available_stock : $data['stock'];
             $data['discount'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount : $data['discount'];
             $data['discount_type'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount_type : $data['discount_type'];
@@ -357,15 +363,15 @@ class Helpers
             $data['schedule_order'] = $data->store->schedule_order;
             $data['rating_count'] = (int)($data->rating ? array_sum(json_decode($data->rating, true)) : 0);
             $data['avg_rating'] = (float)($data->avg_rating ? $data->avg_rating : 0);
-            $data['min_delivery_time'] =  (int) explode('-',$data->store->delivery_time)[0] ?? 0;
-            $data['max_delivery_time'] =  (int) explode('-',$data->store->delivery_time)[1] ?? 0;
+            $data['min_delivery_time'] =  (int) explode('-', $data->store->delivery_time)[0] ?? 0;
+            $data['max_delivery_time'] =  (int) explode('-', $data->store->delivery_time)[1] ?? 0;
             $data['common_condition_id'] =  (int) $data->pharmacy_item_details?->common_condition_id ?? 0;
             $data['brand_id'] =  (int) $data->ecommerce_item_details?->brand_id ?? 0;
             $data['is_basic'] =  (int) $data->pharmacy_item_details?->is_basic ?? 0;
             $data['is_prescription_required'] =  (int) $data->pharmacy_item_details?->is_prescription_required ?? 0;
-            $data['halal_tag_status'] =  (int) $data->store->storeConfig?->halal_tag_status??0;
-            if($temp_product == true){
-                $data['tags']=\App\Models\Tag::whereIn('id',json_decode($data?->tag_ids) )->get(['tag','id']);
+            $data['halal_tag_status'] =  (int) $data->store->storeConfig?->halal_tag_status ?? 0;
+            if ($temp_product == true) {
+                $data['tags'] = \App\Models\Tag::whereIn('id', json_decode($data?->tag_ids))->get(['tag', 'id']);
             }
             $data->store['self_delivery_system'] = (int) $data->store->sub_self_delivery;
 
@@ -404,7 +410,7 @@ class Helpers
                     $item['available_date_ends'] = $item->end_date->format('Y-m-d');
                     unset($item['end_date']);
                 }
-                $item['recommended'] =(int) $item->recommended;
+                $item['recommended'] = (int) $item->recommended;
                 $categories = [];
                 foreach (json_decode($item['category_ids']) as $value) {
                     $categories[] = ['id' => (string)$value->id, 'position' => $value->position];
@@ -421,7 +427,7 @@ class Helpers
                     ]);
                 }
                 $item['variations'] = $variations;
-                $item['food_variations'] = $item['food_variations']?json_decode($item['food_variations'], true):'';
+                $item['food_variations'] = $item['food_variations'] ? json_decode($item['food_variations'], true) : '';
                 $item['module_type'] = $item->module->module_type;
                 $item['store_name'] = $item->store->name;
                 $item['zone_id'] = $item->store->zone_id;
@@ -429,7 +435,7 @@ class Helpers
                     $query->Active()->Running();
                 })
                     ->where(['item_id' => $item['id']])->first();
-                $item['flash_sale'] =(int) (($running_flash_sale) ? 1 :0);
+                $item['flash_sale'] = (int) (($running_flash_sale) ? 1 : 0);
                 $item['stock'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->available_stock : $item['stock'];
                 $item['discount'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount : $item['discount'];
                 $item['discount_type'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount_type : $item['discount_type'];
@@ -438,13 +444,13 @@ class Helpers
                 $item['tax'] = $item->store->tax;
                 $item['rating_count'] = (int)($item->rating ? array_sum(json_decode($item->rating, true)) : 0);
                 $item['avg_rating'] = (float)($item->avg_rating ? $item->avg_rating : 0);
-                $item['recommended'] =(int) $item->recommended;
+                $item['recommended'] = (int) $item->recommended;
 
                 $item['common_condition_id'] =  (int) $item->pharmacy_item_details?->common_condition_id ?? 0;
                 $item['brand_id'] =  (int) $item->ecommerce_item_details?->brand_id ?? 0;
                 $item['is_basic'] =  (int) $item->pharmacy_item_details?->is_basic ?? 0;
                 $item['is_prescription_required'] =  (int) $item->pharmacy_item_details?->is_prescription_required ?? 0;
-                $item['halal_tag_status'] =  (int) $item->store->storeConfig?->halal_tag_status??0;
+                $item['halal_tag_status'] =  (int) $item->store->storeConfig?->halal_tag_status ?? 0;
 
                 if ($trans) {
                     $item['translations'][] = [
@@ -530,7 +536,7 @@ class Helpers
                 unset($data['end_date']);
             }
             $data['variations'] = $variations;
-            $data['food_variations'] = $data['food_variations']?json_decode($data['food_variations'], true):'';
+            $data['food_variations'] = $data['food_variations'] ? json_decode($data['food_variations'], true) : '';
             $data['store_name'] = $data->store->name;
             $data['module_type'] = $data->module->module_type;
             $data['zone_id'] = $data->store->zone_id;
@@ -538,7 +544,7 @@ class Helpers
                 $query->Active()->Running();
             })
                 ->where(['item_id' => $data['id']])->first();
-            $data['flash_sale'] =(int) (($running_flash_sale) ? 1 :0);
+            $data['flash_sale'] = (int) (($running_flash_sale) ? 1 : 0);
             $data['stock'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->available_stock : $data['stock'];
             $data['discount'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount : $data['discount'];
             $data['discount_type'] = ($running_flash_sale && ($running_flash_sale->available_stock > 0)) ? $running_flash_sale->discount_type : $data['discount_type'];
@@ -551,7 +557,7 @@ class Helpers
             $data['brand_id'] =  (int) $data->ecommerce_item_details?->brand_id ?? 0;
             $data['is_basic'] =  (int) $data->pharmacy_item_details?->is_basic ?? 0;
             $data['is_prescription_required'] =  (int) $data->pharmacy_item_details?->is_prescription_required ?? 0;
-            $data['halal_tag_status'] =  (int) $data->store->storeConfig?->halal_tag_status??0;
+            $data['halal_tag_status'] =  (int) $data->store->storeConfig?->halal_tag_status ?? 0;
 
             if ($trans) {
                 $data['translations'][] = [
@@ -759,10 +765,10 @@ class Helpers
                 $item['is_recommended'] = false;
                 $item['halal_tag_status'] =   (bool) $item?->storeConfig?->halal_tag_status;
                 $extra_packaging_data = \App\Models\BusinessSetting::where('key', 'extra_packaging_data')->first()?->value ?? '';
-                $extra_packaging_data =json_decode($extra_packaging_data , true);
-                $item['extra_packaging_status'] =   (bool) (!empty($extra_packaging_data) && $extra_packaging_data[$item->module->module_type]=='1')?$item?->storeConfig?->extra_packaging_status:false;
-                $item['extra_packaging_amount'] =   (float) (!empty($extra_packaging_data) && ($extra_packaging_data[$item->module->module_type]=='1') && ($item?->storeConfig?->extra_packaging_status == '1'))?$item?->storeConfig?->extra_packaging_amount:0;
-                if($item->storeConfig && $item->storeConfig->is_recommended_deleted == 0 ){
+                $extra_packaging_data = json_decode($extra_packaging_data, true);
+                $item['extra_packaging_status'] =   (bool) (!empty($extra_packaging_data) && $extra_packaging_data[$item->module->module_type] == '1') ? $item?->storeConfig?->extra_packaging_status : false;
+                $item['extra_packaging_amount'] =   (float) (!empty($extra_packaging_data) && ($extra_packaging_data[$item->module->module_type] == '1') && ($item?->storeConfig?->extra_packaging_status == '1')) ? $item?->storeConfig?->extra_packaging_amount : 0;
+                if ($item->storeConfig && $item->storeConfig->is_recommended_deleted == 0) {
                     $item['is_recommended'] = $item->storeConfig->is_recommended;
                 }
                 $item['self_delivery_system'] = (int) $item->sub_self_delivery;
@@ -780,10 +786,10 @@ class Helpers
             $data['is_recommended'] = false;
             $data['halal_tag_status'] =   (bool) $data?->storeConfig?->halal_tag_status;
             $extra_packaging_data = \App\Models\BusinessSetting::where('key', 'extra_packaging_data')->first()?->value ?? '';
-            $extra_packaging_data =json_decode($extra_packaging_data , true);
-            $data['extra_packaging_status'] =   (bool) (!empty($extra_packaging_data) && $extra_packaging_data[$data->module->module_type]=='1')?$data?->storeConfig?->extra_packaging_status:false;
-            $data['extra_packaging_amount'] =   (float) (!empty($extra_packaging_data) && ($extra_packaging_data[$data->module->module_type]=='1') && ($data?->storeConfig?->extra_packaging_status == '1'))?$data?->storeConfig?->extra_packaging_amount:0;
-            if($data->storeConfig && $data->storeConfig->is_recommended_deleted == 0 ){
+            $extra_packaging_data = json_decode($extra_packaging_data, true);
+            $data['extra_packaging_status'] =   (bool) (!empty($extra_packaging_data) && $extra_packaging_data[$data->module->module_type] == '1') ? $data?->storeConfig?->extra_packaging_status : false;
+            $data['extra_packaging_amount'] =   (float) (!empty($extra_packaging_data) && ($extra_packaging_data[$data->module->module_type] == '1') && ($data?->storeConfig?->extra_packaging_status == '1')) ? $data?->storeConfig?->extra_packaging_amount : 0;
+            if ($data->storeConfig && $data->storeConfig->is_recommended_deleted == 0) {
                 $data['is_recommended'] = $data->storeConfig->is_recommended;
             }
             $data['self_delivery_system'] = (int) $data->sub_self_delivery;
@@ -845,11 +851,11 @@ class Helpers
                     $item['store_lng'] = $item['store']['longitude'];
                     $item['store_logo'] = $item['store']['logo'];
                     $item['store_logo_full_url'] = $item['store']['logo_full_url'];
-                    $item['min_delivery_time'] =  (int) explode('-',$item['store']['delivery_time'])[0] ?? 0;
-                    $item['max_delivery_time'] =  (int) explode('-',$item['store']['delivery_time'])[1] ?? 0;
+                    $item['min_delivery_time'] =  (int) explode('-', $item['store']['delivery_time'])[0] ?? 0;
+                    $item['max_delivery_time'] =  (int) explode('-', $item['store']['delivery_time'])[1] ?? 0;
 
                     $item['vendor_id'] = $item['store']['vendor_id'];
-                    $item['chat_permission'] = $item['store']['chat_permission']?? 0;
+                    $item['chat_permission'] = $item['store']['chat_permission'] ?? 0;
                     $item['review_permission'] = $item['store']['review_permission'] ?? 0;
                     $item['store_business_model'] = $item['store']['store_business_model'];
 
@@ -878,8 +884,8 @@ class Helpers
 
                 $item['delivery_address'] = $item->delivery_address ? json_decode($item->delivery_address, true) : null;
                 $item['details_count'] = (int)$item->details->count();
-                $item['min_delivery_time'] =  $item->store ? (int)explode('-',$item->store?->delivery_time)[0] ?? 0:0;
-                $item['max_delivery_time'] =  $item->store ? (int)explode('-',$item->store?->delivery_time)[1] ?? 0:0;
+                $item['min_delivery_time'] =  $item->store ? (int)explode('-', $item->store?->delivery_time)[0] ?? 0 : 0;
+                $item['max_delivery_time'] =  $item->store ? (int)explode('-', $item->store?->delivery_time)[1] ?? 0 : 0;
 
                 unset($item['details']);
                 array_push($storage, $item);
@@ -894,10 +900,10 @@ class Helpers
                 $data['store_lng'] = $data['store']['longitude'];
                 $data['store_logo'] = $data['store']['logo'];
                 $data['store_logo_full_url'] = $data['store']['logo_full_url'];
-                $data['min_delivery_time'] =  $data['store']?(int) explode('-',$data['store']['delivery_time'])[0] ?? 0:0;
-                $data['max_delivery_time'] =  $data['store']?(int) explode('-',$data['store']['delivery_time'])[1] ?? 0:0;
+                $data['min_delivery_time'] =  $data['store'] ? (int) explode('-', $data['store']['delivery_time'])[0] ?? 0 : 0;
+                $data['max_delivery_time'] =  $data['store'] ? (int) explode('-', $data['store']['delivery_time'])[1] ?? 0 : 0;
                 $data['vendor_id'] = $data['store']['vendor_id'];
-                $data['chat_permission'] = $data['store']['chat_permission']?? 0;
+                $data['chat_permission'] = $data['store']['chat_permission'] ?? 0;
                 $data['review_permission'] = $data['store']['review_permission'] ?? 0;
                 $data['store_business_model'] = $data['store']['store_business_model'];
 
@@ -934,25 +940,25 @@ class Helpers
 
     public static function order_details_data_formatting($data)
     {
-       
-        
+
+
         $storage = [];
         foreach ($data as $index => $item) {
-           
+
             $item['add_ons'] = json_decode($item['add_ons']);
             $item['variation'] = json_decode($item['variation'], true);
             $item['item_details'] = json_decode($item['item_details'], true);
-            if ($item['item_id']){
+            if ($item['item_id']) {
                 $product = \App\Models\Item::where(['id' => $item['item_details']['id']])->with('components')->first();
-                $item['product'] = $product ;
+                $item['product'] = $product;
                 $item['image_full_url'] = $product->image_full_url;
                 $item['images_full_url'] = $product->images_full_url;
-$item['order_components'] = \App\Models\Order::where('id',request('order_id'))->first()->components[$index] ?? [];
-}else{
-               $product = \App\Models\ItemCampaign::where(['id' => $item['item_details']['id']])->with('components')->first();
+                $item['order_components'] = \App\Models\Order::where('id', request('order_id'))->first()->components[$index] ?? [];
+            } else {
+                $product = \App\Models\ItemCampaign::where(['id' => $item['item_details']['id']])->with('components')->first();
                 $item['image_full_url'] = $product->image_full_url;
                 $item['images_full_url'] = [];
-$item['order_components'] = \App\Models\Order::where('id',request('order_id'))->first()->components[$index] ?? [];
+                $item['order_components'] = \App\Models\Order::where('id', request('order_id'))->first()->components[$index] ?? [];
             }
             array_push($storage, $item);
         }
@@ -1052,11 +1058,10 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
     public static function currency_code()
     {
-        if (!config('currency') ){
+        if (!config('currency')) {
             $currency = BusinessSetting::where(['key' => 'currency'])->first()?->value;
-            Config::set('currency', $currency );
-        }
-        else{
+            Config::set('currency', $currency);
+        } else {
             $currency = config('currency');
         }
 
@@ -1066,26 +1071,24 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
     public static function currency_symbol()
     {
-        if (!config('currency_symbol') ){
+        if (!config('currency_symbol')) {
             $currency_symbol = Currency::where(['currency_code' => Helpers::currency_code()])->first()?->currency_symbol;
-            Config::set('currency_symbol', $currency_symbol );
+            Config::set('currency_symbol', $currency_symbol);
+        } else {
+            $currency_symbol = config('currency_symbol');
         }
-        else{
-            $currency_symbol =config('currency_symbol');
-        }
-        return $currency_symbol ;
+        return $currency_symbol;
     }
 
 
 
     public static function format_currency($value)
     {
-        if (!config('currency_symbol_position') ){
+        if (!config('currency_symbol_position')) {
             $currency_symbol_position = BusinessSetting::where(['key' => 'currency_symbol_position'])->first()?->value;
-            Config::set('currency_symbol_position', $currency_symbol_position );
-        }
-        else{
-            $currency_symbol_position =config('currency_symbol_position');
+            Config::set('currency_symbol_position', $currency_symbol_position);
+        } else {
+            $currency_symbol_position = config('currency_symbol_position');
         }
 
         return $currency_symbol_position == 'right' ? number_format($value, config('round_up_to_digit')) . ' ' . self::currency_symbol() : self::currency_symbol() . ' ' . number_format($value, config('round_up_to_digit'));
@@ -1095,15 +1098,15 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     {
         $config = self::get_business_settings('push_notification_service_file_content');
         $key = (array)$config;
-        if($key['project_id']){
-            $url = 'https://fcm.googleapis.com/v1/projects/'.$key['project_id'].'/messages:send';
+        if ($key['project_id']) {
+            $url = 'https://fcm.googleapis.com/v1/projects/' . $key['project_id'] . '/messages:send';
             $headers = [
                 'Authorization' => 'Bearer ' . self::getAccessToken($key),
                 'Content-Type' => 'application/json',
             ];
             try {
                 Http::withHeaders($headers)->post($url, $data);
-            }catch (\Exception $exception){
+            } catch (\Exception $exception) {
                 return false;
             }
         }
@@ -1134,37 +1137,37 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
     public static function send_push_notif_to_device($fcm_token, $data, $web_push_link = null)
     {
-//        if(isset($data['message'])){
-//            $message = $data['message'];
-//        }else{
-//            $message = '';
-//        }
-        if(isset($data['conversation_id'])){
+        //        if(isset($data['message'])){
+        //            $message = $data['message'];
+        //        }else{
+        //            $message = '';
+        //        }
+        if (isset($data['conversation_id'])) {
             $conversation_id = $data['conversation_id'];
-        }else{
+        } else {
             $conversation_id = '';
         }
-        if(isset($data['sender_type'])){
+        if (isset($data['sender_type'])) {
             $sender_type = $data['sender_type'];
-        }else{
+        } else {
             $sender_type = '';
         }
-        if(isset($data['module_id'])){
+        if (isset($data['module_id'])) {
             $module_id = $data['module_id'];
-        }else{
+        } else {
             $module_id = '';
         }
-        if(isset($data['order_type'])){
+        if (isset($data['order_type'])) {
             $order_type = $data['order_type'];
-        }else{
+        } else {
             $order_type = '';
         }
 
-//        $click_action = "";
-//        if($web_push_link){
-//            $click_action = ',
-//            "click_action": "'.$web_push_link.'"';
-//        }
+        //        $click_action = "";
+        //        if($web_push_link){
+        //            $click_action = ',
+        //            "click_action": "'.$web_push_link.'"';
+        //        }
         $postData = [
             'message' => [
                 "token" => $fcm_token,
@@ -1178,7 +1181,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     "module_id" => (string)$module_id,
                     "sender_type" => (string)$sender_type,
                     "order_type" => (string)$order_type,
-                    "click_action" => $web_push_link?(string)$web_push_link:'',
+                    "click_action" => $web_push_link ? (string)$web_push_link : '',
                     "sound" => "notification.wav",
                 ],
                 "notification" => [
@@ -1204,29 +1207,29 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return self::sendNotificationToHttp($postData);
     }
 
-    public static function send_push_notif_to_topic($data, $topic, $type,$web_push_link = null)
+    public static function send_push_notif_to_topic($data, $topic, $type, $web_push_link = null)
     {
-        if(isset($data['module_id'])){
+        if (isset($data['module_id'])) {
             $module_id = $data['module_id'];
-        }else{
+        } else {
             $module_id = '';
         }
-        if(isset($data['order_type'])){
+        if (isset($data['order_type'])) {
             $order_type = $data['order_type'];
-        }else{
+        } else {
             $order_type = '';
         }
-        if(isset($data['zone_id'])){
+        if (isset($data['zone_id'])) {
             $zone_id = $data['zone_id'];
-        }else{
+        } else {
             $zone_id = '';
         }
 
-//        $click_action = "";
-//        if($web_push_link){
-//            $click_action = ',
-//            "click_action": "'.$web_push_link.'"';
-//        }
+        //        $click_action = "";
+        //        if($web_push_link){
+        //            $click_action = ',
+        //            "click_action": "'.$web_push_link.'"';
+        //        }
 
         if (isset($data['order_id'])) {
             $postData = [
@@ -1243,7 +1246,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         "zone_id" => (string)$zone_id,
                         "title_loc_key" => (string)$data['order_id'],
                         "body_loc_key" => (string)$type,
-                        "click_action" => $web_push_link?(string)$web_push_link:'',
+                        "click_action" => $web_push_link ? (string)$web_push_link : '',
                         "sound" => "notification.wav",
                     ],
                     "notification" => [
@@ -1275,7 +1278,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         "type" => (string)$type,
                         "image" => (string)$data['image'],
                         "body_loc_key" => (string)$type,
-                        "click_action" => $web_push_link?(string)$web_push_link:'',
+                        "click_action" => $web_push_link ? (string)$web_push_link : '',
                         "sound" => "notification.wav",
                     ],
                     "notification" => [
@@ -1354,17 +1357,17 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         })
             ->where(['item_id' => $product->id])->first();
 
-        if($running_flash_sale){
+        if ($running_flash_sale) {
             if ($running_flash_sale['discount_type'] == 'percent') {
                 $price_discount = ($price / 100) * $running_flash_sale['discount'];
             } else {
                 $price_discount = $running_flash_sale['discount'];
             }
             return [
-                'discount_type'=>'flash_sale',
-                'discount_amount'=> $price_discount,
-                'admin_discount_amount'=> ($price_discount*$running_flash_sale->flashSale->admin_discount_percentage)/100,
-                'vendor_discount_amount'=> ($price_discount*$running_flash_sale->flashSale->vendor_discount_percentage)/100,
+                'discount_type' => 'flash_sale',
+                'discount_amount' => $price_discount,
+                'admin_discount_amount' => ($price_discount * $running_flash_sale->flashSale->admin_discount_percentage) / 100,
+                'vendor_discount_amount' => ($price_discount * $running_flash_sale->flashSale->vendor_discount_percentage) / 100,
             ];
         }
 
@@ -1378,8 +1381,8 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         }
 
         return [
-            'discount_type'=>isset($store_discount)?'store_discount':'product_discount',
-            'discount_amount'=> $price_discount
+            'discount_type' => isset($store_discount) ? 'store_discount' : 'product_discount',
+            'discount_amount' => $price_discount
         ];
     }
 
@@ -1417,7 +1420,6 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
         if ($discount) {
             $lowest_price -= self::product_discount_calculate($product, $lowest_price, $product->store)['discount_amount'];
-
         }
         $lowest_price = self::format_currency($lowest_price);
         return $lowest_price;
@@ -1479,82 +1481,82 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $max;
     }
 
-    public static function order_status_update_message($status,$module_type, $lang='en')
+    public static function order_status_update_message($status, $module_type, $lang = 'en')
     {
         if ($status == 'pending') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'order_pending_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'order_pending_message')->first();
         } elseif ($status == 'confirmed') {
-            $data =  NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data =  NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'order_confirmation_msg')->first();
+            }])->where('module_type', $module_type)->where('key', 'order_confirmation_msg')->first();
         } elseif ($status == 'processing') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'order_processing_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'order_processing_message')->first();
         } elseif ($status == 'picked_up') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'out_for_delivery_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'out_for_delivery_message')->first();
         } elseif ($status == 'handover') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'order_handover_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'order_handover_message')->first();
         } elseif ($status == 'delivered') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'order_delivered_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'order_delivered_message')->first();
         } elseif ($status == 'delivery_boy_delivered') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'delivery_boy_delivered_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'delivery_boy_delivered_message')->first();
         } elseif ($status == 'accepted') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'delivery_boy_assign_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'delivery_boy_assign_message')->first();
         } elseif ($status == 'canceled') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'order_cancled_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'order_cancled_message')->first();
         } elseif ($status == 'refunded') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'order_refunded_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'order_refunded_message')->first();
         } elseif ($status == 'refund_request_canceled') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'refund_request_canceled')->first();
+            }])->where('module_type', $module_type)->where('key', 'refund_request_canceled')->first();
         } elseif ($status == 'offline_verified') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'offline_order_accept_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'offline_order_accept_message')->first();
         } elseif ($status == 'offline_denied') {
-            $data = NotificationMessage::with(['translations'=>function($query)use($lang){
+            $data = NotificationMessage::with(['translations' => function ($query) use ($lang) {
                 $query->where('locale', $lang);
-            }])->where('module_type',$module_type)->where('key', 'offline_order_deny_message')->first();
+            }])->where('module_type', $module_type)->where('key', 'offline_order_deny_message')->first();
         } else {
-            $data = ["status"=>"0","message"=>"",'translations'=>[]];
+            $data = ["status" => "0", "message" => "", 'translations' => []];
         }
 
-        if($data){
+        if ($data) {
             if ($data['status'] == 0) {
                 return 0;
             }
             return count($data->translations) > 0 ? $data->translations[0]->value : $data['message'];
-        }else{
+        } else {
             return false;
         }
     }
 
     public static function send_order_notification($order)
     {
-        $push_notification_status=self::getNotificationStatusData('store','store_order_notification','push_notification_status', $order?->store?->id);
+        $push_notification_status = self::getNotificationStatusData('store', 'store_order_notification', 'push_notification_status', $order?->store?->id);
 
         try {
 
 
-            if((in_array($order->payment_method, ['cash_on_delivery', 'offline_payment'])  && $order->order_status == 'pending' )||(!in_array($order->payment_method, ['cash_on_delivery', 'offline_payment']) && $order->order_status == 'confirmed' )){
+            if ((in_array($order->payment_method, ['cash_on_delivery', 'offline_payment'])  && $order->order_status == 'pending') || (!in_array($order->payment_method, ['cash_on_delivery', 'offline_payment']) && $order->order_status == 'confirmed')) {
                 $data = [
                     'title' => translate('Order_Notification'),
                     'description' => translate('messages.new_order_push_description'),
@@ -1565,27 +1567,26 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     'zone_id' => $order->zone_id,
                     'type' => 'new_order',
                 ];
-                self::send_push_notif_to_topic($data, 'admin_message', 'order_request', url('/').'/admin/order/list/all');
+                self::send_push_notif_to_topic($data, 'admin_message', 'order_request', url('/') . '/admin/order/list/all');
             }
 
             $status = ($order->order_status == 'delivered' && $order->delivery_man) ? 'delivery_boy_delivered' : $order->order_status;
 
 
-            if($order->is_guest){
-                $customer_details = json_decode($order['delivery_address'],true);
-                $value = self::order_status_update_message($status,$order->module->module_type,'en');
-                $value = self::text_variable_data_format(value:$value,store_name:$order->store?->name,order_id:$order->id,user_name:"{$customer_details['contact_person_name']}",delivery_man_name:"{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
+            if ($order->is_guest) {
+                $customer_details = json_decode($order['delivery_address'], true);
+                $value = self::order_status_update_message($status, $order->module->module_type, 'en');
+                $value = self::text_variable_data_format(value: $value, store_name: $order->store?->name, order_id: $order->id, user_name: "{$customer_details['contact_person_name']}", delivery_man_name: "{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
                 $user_fcm = $order->guest->fcm_token;
+            } else {
 
-            }else{
-
-                $value = self::order_status_update_message($status,$order->module->module_type,$order->customer?
-                    $order->customer->current_language_key:'en');
-                $value = self::text_variable_data_format(value:$value,store_name:$order->store?->name,order_id:$order->id,user_name:"{$order->customer?->f_name} {$order->customer?->l_name}",delivery_man_name:"{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
+                $value = self::order_status_update_message($status, $order->module->module_type, $order->customer ?
+                    $order->customer->current_language_key : 'en');
+                $value = self::text_variable_data_format(value: $value, store_name: $order->store?->name, order_id: $order->id, user_name: "{$order->customer?->f_name} {$order->customer?->l_name}", delivery_man_name: "{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
                 $user_fcm = $order?->customer?->cm_firebase_token;
             }
 
-            if (self::getNotificationStatusData('customer','customer_order_notification','push_notification_status') &&  $value && $user_fcm) {
+            if (self::getNotificationStatusData('customer', 'customer_order_notification', 'push_notification_status') &&  $value && $user_fcm) {
                 $data = [
                     'title' => translate('Order_Notification'),
                     'description' => $value,
@@ -1610,7 +1611,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     'image' => '',
                     'type' => 'order_status',
                 ];
-                if($order->store && $order->store->vendor && $push_notification_status){
+                if ($order->store && $order->store->vendor && $push_notification_status) {
                     self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
                     DB::table('user_notifications')->insert([
                         'data' => json_encode($data),
@@ -1632,9 +1633,9 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         'image' => '',
                         'type' => 'new_order',
                     ];
-                    if($order->store && $order->store->vendor && $push_notification_status){
+                    if ($order->store && $order->store->vendor && $push_notification_status) {
                         self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                        $web_push_link = url('/').'/store-panel/order/list/all';
+                        $web_push_link = url('/') . '/store-panel/order/list/all';
                         self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
                         DB::table('user_notifications')->insert([
                             'data' => json_encode($data),
@@ -1654,15 +1655,22 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         'order_type' => $order->order_type,
                         'image' => '',
                     ];
-                    if($order->zone){
-                        if($order->dm_vehicle_id){
+                    if ($order->zone) {
+                        if ($order->dm_vehicle_id) {
 
-                            $topic = 'delivery_man_'.$order->zone_id.'_'.$order->dm_vehicle_id;
+                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
                             self::send_push_notif_to_topic($data, $topic, 'order_request');
                         }
                         self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-
-
+                        $multi_zone_delivery_men = \App\Models\DeliveryMan::active()->where('zone_id', '!=', $order->zone_id)
+                            ->whereHas('zones', function ($q) use ($order) {
+                                $q->where('zone_id', $order->zone_id);
+                            })->get();
+                        foreach ($multi_zone_delivery_men as $dm) {
+                            if ($dm->fcm_token) {
+                                self::send_push_notif_to_device($dm->fcm_token, $data);
+                            }
+                        }
                     }
                 }
                 // self::send_push_notif_to_topic($data, 'admin_message', 'order_request', url('/').'/admin/order/list/all');
@@ -1677,14 +1685,22 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     'order_type' => 'parcel_order',
                     'image' => '',
                 ];
-                if($order->zone){
-                    if($order->dm_vehicle_id){
+                if ($order->zone) {
+                    if ($order->dm_vehicle_id) {
 
-                        $topic = 'delivery_man_'.$order->zone_id.'_'.$order->dm_vehicle_id;
+                        $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
                         self::send_push_notif_to_topic($data, $topic, 'order_request');
                     }
                     self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-
+                    $multi_zone_delivery_men = \App\Models\DeliveryMan::active()->where('zone_id', '!=', $order->zone_id)
+                        ->whereHas('zones', function ($q) use ($order) {
+                            $q->where('zone_id', $order->zone_id);
+                        })->get();
+                    foreach ($multi_zone_delivery_men as $dm) {
+                        if ($dm->fcm_token) {
+                            self::send_push_notif_to_device($dm->fcm_token, $data);
+                        }
+                    }
                 }
                 // self::send_push_notif_to_topic($data, 'admin_message', 'order_request');
             }
@@ -1699,9 +1715,9 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     'image' => '',
                     'type' => 'new_order',
                 ];
-                if($order->store && $order->store->vendor && $push_notification_status){
+                if ($order->store && $order->store->vendor && $push_notification_status) {
                     self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                    $web_push_link = url('/').'/store-panel/order/list/all';
+                    $web_push_link = url('/') . '/store-panel/order/list/all';
                     self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
                     // self::send_push_notif_to_topic($data, 'admin_message', 'order_request');
                     DB::table('user_notifications')->insert([
@@ -1721,9 +1737,9 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     'image' => '',
                     'type' => 'new_order',
                 ];
-                if($order->store && $order->store->vendor && $push_notification_status){
+                if ($order->store && $order->store->vendor && $push_notification_status) {
                     self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                    $web_push_link = url('/').'/store-panel/order/list/all';
+                    $web_push_link = url('/') . '/store-panel/order/list/all';
                     self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
                     DB::table('user_notifications')->insert([
                         'data' => json_encode($data),
@@ -1745,7 +1761,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         'image' => '',
                     ];
 
-                    self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'new_order',null);
+                    self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'new_order', null);
                 } else {
                     $data = [
                         'title' => translate('Order_Notification'),
@@ -1756,9 +1772,9 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                         'image' => '',
                         'type' => 'new_order',
                     ];
-                    if($order->store && $order->store->vendor && $push_notification_status){
+                    if ($order->store && $order->store->vendor && $push_notification_status) {
                         self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                        $web_push_link = url('/').'/store-panel/order/list/all';
+                        $web_push_link = url('/') . '/store-panel/order/list/all';
                         self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
                         DB::table('user_notifications')->insert([
                             'data' => json_encode($data),
@@ -1780,20 +1796,29 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     'image' => '',
                 ];
                 if ($order->store->sub_self_delivery) {
-                    self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'order_request',null);
-                } else
-                {if($order->zone){
-                    if($order->dm_vehicle_id){
+                    self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'order_request', null);
+                } else {
+                    if ($order->zone) {
+                        if ($order->dm_vehicle_id) {
 
-                        $topic = 'delivery_man_'.$order->zone_id.'_'.$order->dm_vehicle_id;
-                        self::send_push_notif_to_topic($data, $topic, 'order_request');
+                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
+                            self::send_push_notif_to_topic($data, $topic, 'order_request');
+                        }
+                        self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
+                        $multi_zone_delivery_men = \App\Models\DeliveryMan::active()->where('zone_id', '!=', $order->zone_id)
+                            ->whereHas('zones', function ($q) use ($order) {
+                                $q->where('zone_id', $order->zone_id);
+                            })->get();
+                        foreach ($multi_zone_delivery_men as $dm) {
+                            if ($dm->fcm_token) {
+                                self::send_push_notif_to_device($dm->fcm_token, $data);
+                            }
+                        }
                     }
-                    self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-                }
                 }
             }
 
-            if (in_array($order->order_status, ['processing', 'handover']) && $order->delivery_man && self::getNotificationStatusData('deliveryman','deliveryman_order_notification','push_notification_status')) {
+            if (in_array($order->order_status, ['processing', 'handover']) && $order->delivery_man && self::getNotificationStatusData('deliveryman', 'deliveryman_order_notification', 'push_notification_status')) {
                 $data = [
                     'title' => translate('Order_Notification'),
                     'description' => $order->order_status == 'processing' ? translate('messages.Proceed_for_cooking') : translate('messages.ready_for_delivery'),
@@ -1811,12 +1836,12 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             }
 
             try {
-                if ($order->order_status == 'confirmed' && $order->payment_method != 'cash_on_delivery' && config('mail.status') && Helpers::get_mail_status('place_order_mail_status_user') == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer','customer_order_notification','mail_status')) {
+                if ($order->order_status == 'confirmed' && $order->payment_method != 'cash_on_delivery' && config('mail.status') && Helpers::get_mail_status('place_order_mail_status_user') == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer', 'customer_order_notification', 'mail_status')) {
                     Mail::to($order->customer->email)->send(new PlaceOrder($order->id));
                 }
                 $order_verification_mail_status = Helpers::get_mail_status('order_verification_mail_status_user');
-                if ($order->order_status == 'pending' && config('order_delivery_verification') == 1  && config('mail.status') && $order_verification_mail_status == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer','customer_delivery_verification','mail_status')) {
-                    Mail::to($order->customer->email)->send(new OrderVerificationMail($order->otp,$order->customer->f_name));
+                if ($order->order_status == 'pending' && config('order_delivery_verification') == 1  && config('mail.status') && $order_verification_mail_status == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer', 'customer_delivery_verification', 'mail_status')) {
+                    Mail::to($order->customer->email)->send(new OrderVerificationMail($order->otp, $order->customer->f_name));
                 }
             } catch (\Exception $ex) {
                 info($ex->getMessage());
@@ -1936,9 +1961,9 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
     public static function getDisk()
     {
-        $config=\App\CentralLogics\Helpers::get_business_settings('local_storage');
+        $config = \App\CentralLogics\Helpers::get_business_settings('local_storage');
 
-        return isset($config)?($config==0?'s3':'public'):'public';
+        return isset($config) ? ($config == 0 ? 's3' : 'public') : 'public';
     }
 
     public static function upload(string $dir, string $format, $image = null)
@@ -2118,11 +2143,11 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return true;
     }
 
-    public static function insert_data_settings_key($key,$type, $value = null)
+    public static function insert_data_settings_key($key, $type, $value = null)
     {
         $data =  DataSetting::where('key', $key)->where('type', $type)->first();
         if (!$data) {
-            DataSetting::updateOrCreate(['key' => $key,'type' => $type ], [
+            DataSetting::updateOrCreate(['key' => $key, 'type' => $type], [
                 'value' => $value,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -2294,15 +2319,13 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     {
         if (strpos(url()->current(), '/api')) {
             $lang = App::getLocale();
-        } elseif ( request()->is('admin*') && auth('admin')?->check() && session()->has('local')) {
+        } elseif (request()->is('admin*') && auth('admin')?->check() && session()->has('local')) {
             $lang = session('local');
-        }elseif (request()->is('store-panel/*') && (auth('vendor_employee')?->check() || auth('vendor')?->check()) && session()->has('vendor_local')) {
+        } elseif (request()->is('store-panel/*') && (auth('vendor_employee')?->check() || auth('vendor')?->check()) && session()->has('vendor_local')) {
             $lang = session('vendor_local');
-        }
-        elseif (session()->has('landing_local')) {
+        } elseif (session()->has('landing_local')) {
             $lang = session('landing_local');
-        }
-        elseif (session()->has('local')) {
+        } elseif (session()->has('local')) {
             $lang = session('local');
         } else {
             $data = Helpers::get_business_settings('language');
@@ -2328,7 +2351,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         $lang = 'en';
 
         foreach ($languages as $key => $language) {
-            if($language->default){
+            if ($language->default) {
                 $lang = $language->code;
             }
         }
@@ -2340,7 +2363,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         $lang = 'en';
 
         foreach ($languages as $key => $language) {
-            if($language->default){
+            if ($language->default) {
                 $lang = $language->direction;
             }
         }
@@ -2355,7 +2378,8 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
     //Generate referer code
 
-    public static function generate_referer_code() {
+    public static function generate_referer_code()
+    {
         $ref_code = strtoupper(Str::random(10));
 
         if (self::referer_code_exists($ref_code)) {
@@ -2365,12 +2389,14 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $ref_code;
     }
 
-    public static function referer_code_exists($ref_code) {
+    public static function referer_code_exists($ref_code)
+    {
         return User::where('ref_code', '=', $ref_code)->exists();
     }
 
 
-    public static function generate_reset_password_code() {
+    public static function generate_reset_password_code()
+    {
         $code = strtoupper(Str::random(15));
 
         if (self::reset_password_code_exists($code)) {
@@ -2380,11 +2406,13 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $code;
     }
 
-    public static function reset_password_code_exists($code) {
+    public static function reset_password_code_exists($code)
+    {
         return DB::table('password_resets')->where('token', '=', $code)->exists();
     }
 
-    public static function number_format_short( $n ) {
+    public static function number_format_short($n)
+    {
         if ($n < 900) {
             // 0 - 900
             $n = $n;
@@ -2407,13 +2435,13 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             $suffix = 'T';
         }
 
-        if(!session()->has('currency_symbol_position')){
+        if (!session()->has('currency_symbol_position')) {
             $currency_symbol_position = BusinessSetting::where(['key' => 'currency_symbol_position'])->first()->value;
-            session()->put('currency_symbol_position',$currency_symbol_position);
+            session()->put('currency_symbol_position', $currency_symbol_position);
         }
         $currency_symbol_position = session()->get('currency_symbol_position');
 
-        return $currency_symbol_position == 'right' ? number_format($n, config('round_up_to_digit')).$suffix . ' ' . self::currency_symbol() : self::currency_symbol() . ' ' . number_format($n, config('round_up_to_digit')).$suffix;
+        return $currency_symbol_position == 'right' ? number_format($n, config('round_up_to_digit')) . $suffix . ' ' . self::currency_symbol() : self::currency_symbol() . ' ' . number_format($n, config('round_up_to_digit')) . $suffix;
     }
     // public static function export_attributes($collection){
     //     $data = [];
@@ -2428,29 +2456,31 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     // }
 
 
-    public static function export_store_withdraw($collection){
+    public static function export_store_withdraw($collection)
+    {
         $data = [];
-        $status = ['pending','approved','denied'];
-        foreach($collection as $key=>$item){
+        $status = ['pending', 'approved', 'denied'];
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.amount') => $item->amount,
                 translate('messages.store') => isset($item->vendor) ? $item->vendor->stores[0]->name : '',
-                translate('messages.request_time') => date('Y-m-d '.config('timeformat'),strtotime($item->created_at)),
-                translate('messages.status') => isset($status[$item->approved])?translate("messages.".$status[$item->approved]):"",
+                translate('messages.request_time') => date('Y-m-d ' . config('timeformat'), strtotime($item->created_at)),
+                translate('messages.status') => isset($status[$item->approved]) ? translate("messages." . $status[$item->approved]) : "",
             ];
         }
         return $data;
     }
 
-    public static function export_account_transaction($collection){
+    public static function export_account_transaction($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.collect_from') => $item->store ? $item->store?->name : ($item->deliveryman ? $item->deliveryman->f_name . ' ' . $item->deliveryman->l_name : translate('messages.not_found')),
                 translate('messages.type') => $item->from_type,
-                translate('messages.received_at') => $item->created_at->format('Y-m-d '.config('timeformat')),
+                translate('messages.received_at') => $item->created_at->format('Y-m-d ' . config('timeformat')),
                 translate('messages.amount') => $item->amount,
                 translate('messages.reference') => $item->ref,
             ];
@@ -2458,13 +2488,14 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function export_dm_earning($collection){
+    public static function export_dm_earning($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
-                translate('messages.name') => isset($item->delivery_man) ? $item->delivery_man->f_name.' '.$item->delivery_man->l_name : translate('messages.not_found'),
-                translate('messages.received_at') => $item->created_at->format('Y-m-d '.config('timeformat')),
+                'SL' => $key + 1,
+                translate('messages.name') => isset($item->delivery_man) ? $item->delivery_man->f_name . ' ' . $item->delivery_man->l_name : translate('messages.not_found'),
+                translate('messages.received_at') => $item->created_at->format('Y-m-d ' . config('timeformat')),
                 translate('messages.amount') => $item->amount,
                 translate('messages.method') => $item->method,
                 translate('messages.reference') => $item->ref,
@@ -2473,60 +2504,57 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function export_items($foods,$module_type){
+    public static function export_items($foods, $module_type)
+    {
         $storage = [];
-        foreach($foods as $item)
-        {
+        foreach ($foods as $item) {
             $category_id = 0;
             $sub_category_id = 0;
-            foreach(json_decode($item->category_ids, true) as $key=>$category)
-            {
-                if($key==0)
-                {
+            foreach (json_decode($item->category_ids, true) as $key => $category) {
+                if ($key == 0) {
                     $category_id = $category['id'];
-                }
-                else if($key==1)
-                {
+                } else if ($key == 1) {
                     $sub_category_id = $category['id'];
                 }
             }
             $storage[] = [
-                'Id'=>$item->id,
-                'Name'=>$item->name,
-                'Description'=>$item->description,
-                'Image'=>$item->image,
-                'Images'=>$item->images,
-                'CategoryId'=>$category_id,
-                'SubCategoryId'=>$sub_category_id,
-                'UnitId'=>$item->unit_id,
-                'Stock'=>$item->stock,
-                'Price'=>$item->price,
-                'Discount'=>$item->discount,
-                'DiscountType'=>$item->discount_type,
-                'AvailableTimeStarts'=>$item->available_time_starts,
-                'AvailableTimeEnds'=>$item->available_time_ends,
-                'Variations'=>$module_type == 'food'?$item->food_variations:$item->variations,
-                'AddOns'=>str_replace(['"','[',']'],'',$item->add_ons),
-                'Attributes'=>str_replace(['"','[',']'],'',$item->attributes),
-                'StoreId'=>$item->store_id,
-                'ModuleId'=>$item->module_id,
-                'Status'=>$item->status == 1 ? 'active' : 'inactive',
-                'Veg'=>$item->veg == 1 ? 'yes' : 'no',
-                'Recommended'=>$item->recommended == 1 ? 'yes' : 'no',
+                'Id' => $item->id,
+                'Name' => $item->name,
+                'Description' => $item->description,
+                'Image' => $item->image,
+                'Images' => $item->images,
+                'CategoryId' => $category_id,
+                'SubCategoryId' => $sub_category_id,
+                'UnitId' => $item->unit_id,
+                'Stock' => $item->stock,
+                'Price' => $item->price,
+                'Discount' => $item->discount,
+                'DiscountType' => $item->discount_type,
+                'AvailableTimeStarts' => $item->available_time_starts,
+                'AvailableTimeEnds' => $item->available_time_ends,
+                'Variations' => $module_type == 'food' ? $item->food_variations : $item->variations,
+                'AddOns' => str_replace(['"', '[', ']'], '', $item->add_ons),
+                'Attributes' => str_replace(['"', '[', ']'], '', $item->attributes),
+                'StoreId' => $item->store_id,
+                'ModuleId' => $item->module_id,
+                'Status' => $item->status == 1 ? 'active' : 'inactive',
+                'Veg' => $item->veg == 1 ? 'yes' : 'no',
+                'Recommended' => $item->recommended == 1 ? 'yes' : 'no',
             ];
         }
 
         return $storage;
     }
 
-    public static function export_store_item($collection){
+    public static function export_store_item($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.id') => $item['id'],
                 translate('messages.name') => $item['name'],
-                translate('messages.type') => $item->category?$item->category->name:'',
+                translate('messages.type') => $item->category ? $item->category->name : '',
                 translate('messages.price') => $item['price'],
                 translate('messages.status') => $item['status'],
             ];
@@ -2534,53 +2562,55 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function export_stores($collection){
+    public static function export_stores($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'id'=>$item->id,
-                'ownerId'=>$item->vendor->id,
-                'ownerFirstName'=>$item->vendor->f_name,
-                'ownerLastName'=>$item->vendor->l_name,
-                'storeName'=>$item->name,
-                'phone'=>$item->vendor->phone,
-                'email'=>$item->vendor->email,
-                'logo'=>$item->logo,
-                'CoverPhoto'=>$item->cover_photo,
-                'latitude'=>$item->latitude,
-                'longitude'=>$item->longitude,
-                'Address'=>$item->address ?? null,
-                'zone_id'=>$item->zone_id,
-                'module_id'=>$item->module_id,
-                'MinimumOrderAmount'=>$item->minimum_order,
-                'Comission'=>$item->comission ?? 0,
-                'Tax'=>$item->tax ?? 0,
-                'DeliveryTime'=>$item->delivery_time ?? '20-30',
-                'MinimumDeliveryFee'=>$item->minimum_shipping_charge ?? 0,
-                'PerKmDeliveryFee'=>$item->per_km_shipping_charge ?? 0,
-                'MaximumDeliveryFee'=>$item->maximum_shipping_charge ?? 0,
-                'ScheduleOrder'=> $item->schedule_order == 1 ? 'yes' : 'no',
-                'Status'=> $item->status == 1 ? 'active' : 'inactive',
-                'SelfDeliverySystem'=> $item->self_delivery_system == 1 ? 'active' : 'inactive',
-                'Veg'=> $item->veg == 1 ? 'yes' : 'no',
-                'NonVeg'=> $item->non_veg == 1 ? 'yes' : 'no',
-                'FreeDelivery'=> $item->free_delivery == 1 ? 'yes' : 'no',
-                'TakeAway'=> $item->take_away == 1 ? 'yes' : 'no',
-                'Delivery'=> $item->delivery == 1 ? 'yes' : 'no',
-                'ReviewsSection'=> $item->reviews_section == 1 ? 'active' : 'inactive',
-                'PosSystem'=> $item->pos_system == 1 ? 'active' : 'inactive',
-                'storeOpen'=> $item->active == 1 ? 'yes' : 'no',
-                'FeaturedStore'=> $item->featured == 1 ? 'yes' : 'no',
+                'id' => $item->id,
+                'ownerId' => $item->vendor->id,
+                'ownerFirstName' => $item->vendor->f_name,
+                'ownerLastName' => $item->vendor->l_name,
+                'storeName' => $item->name,
+                'phone' => $item->vendor->phone,
+                'email' => $item->vendor->email,
+                'logo' => $item->logo,
+                'CoverPhoto' => $item->cover_photo,
+                'latitude' => $item->latitude,
+                'longitude' => $item->longitude,
+                'Address' => $item->address ?? null,
+                'zone_id' => $item->zone_id,
+                'module_id' => $item->module_id,
+                'MinimumOrderAmount' => $item->minimum_order,
+                'Comission' => $item->comission ?? 0,
+                'Tax' => $item->tax ?? 0,
+                'DeliveryTime' => $item->delivery_time ?? '20-30',
+                'MinimumDeliveryFee' => $item->minimum_shipping_charge ?? 0,
+                'PerKmDeliveryFee' => $item->per_km_shipping_charge ?? 0,
+                'MaximumDeliveryFee' => $item->maximum_shipping_charge ?? 0,
+                'ScheduleOrder' => $item->schedule_order == 1 ? 'yes' : 'no',
+                'Status' => $item->status == 1 ? 'active' : 'inactive',
+                'SelfDeliverySystem' => $item->self_delivery_system == 1 ? 'active' : 'inactive',
+                'Veg' => $item->veg == 1 ? 'yes' : 'no',
+                'NonVeg' => $item->non_veg == 1 ? 'yes' : 'no',
+                'FreeDelivery' => $item->free_delivery == 1 ? 'yes' : 'no',
+                'TakeAway' => $item->take_away == 1 ? 'yes' : 'no',
+                'Delivery' => $item->delivery == 1 ? 'yes' : 'no',
+                'ReviewsSection' => $item->reviews_section == 1 ? 'active' : 'inactive',
+                'PosSystem' => $item->pos_system == 1 ? 'active' : 'inactive',
+                'storeOpen' => $item->active == 1 ? 'yes' : 'no',
+                'FeaturedStore' => $item->featured == 1 ? 'yes' : 'no',
             ];
         }
         return $data;
     }
 
-    public static function export_units($collection){
+    public static function export_units($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.id') => $item['id'],
                 translate('messages.unit') => $item['unit'],
             ];
@@ -2588,13 +2618,14 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function export_customers($collection){
+    public static function export_customers($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.id') => $item['id'],
-                translate('messages.name') => $item->f_name.' '.$item->l_name,
+                translate('messages.name') => $item->f_name . ' ' . $item->l_name,
                 translate('messages.phone') => $item['phone'],
                 translate('messages.email') => $item['email'],
                 translate('messages.total_order') => $item['order_count'],
@@ -2604,20 +2635,21 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function export_day_wise_report($collection){
+    public static function export_day_wise_report($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.order_id') => $item['order_id'],
-                translate('messages.store')=>$item->order->store?$item->order->store->name:translate('messages.invalid'),
-                translate('messages.customer_name')=>$item->order->customer?$item->order->customer['f_name'].' '.$item->order->customer['l_name']:translate('messages.invalid_customer_data'),
-                translate('total_item_amount')=>\App\CentralLogics\Helpers::format_currency($item->order['order_amount'] - $item->order['dm_tips']-$item->order['delivery_charge'] - $item['tax'] + $item->order['coupon_discount_amount'] + $item->order['store_discount_amount']),
-                translate('item_discount')=>\App\CentralLogics\Helpers::format_currency($item->order->details->sum('discount_on_item')),
-                translate('coupon_discount')=>\App\CentralLogics\Helpers::format_currency($item->order['coupon_discount_amount']),
-                translate('discounted_amount')=>\App\CentralLogics\Helpers::format_currency($item->order['coupon_discount_amount'] + $item->order['store_discount_amount']),
-                translate('messages.tax')=>\App\CentralLogics\Helpers::format_currency($item->order['total_tax_amount']),
-                translate('messages.delivery_charge')=>\App\CentralLogics\Helpers::format_currency($item['delivery_charge']),
+                translate('messages.store') => $item->order->store ? $item->order->store->name : translate('messages.invalid'),
+                translate('messages.customer_name') => $item->order->customer ? $item->order->customer['f_name'] . ' ' . $item->order->customer['l_name'] : translate('messages.invalid_customer_data'),
+                translate('total_item_amount') => \App\CentralLogics\Helpers::format_currency($item->order['order_amount'] - $item->order['dm_tips'] - $item->order['delivery_charge'] - $item['tax'] + $item->order['coupon_discount_amount'] + $item->order['store_discount_amount']),
+                translate('item_discount') => \App\CentralLogics\Helpers::format_currency($item->order->details->sum('discount_on_item')),
+                translate('coupon_discount') => \App\CentralLogics\Helpers::format_currency($item->order['coupon_discount_amount']),
+                translate('discounted_amount') => \App\CentralLogics\Helpers::format_currency($item->order['coupon_discount_amount'] + $item->order['store_discount_amount']),
+                translate('messages.tax') => \App\CentralLogics\Helpers::format_currency($item->order['total_tax_amount']),
+                translate('messages.delivery_charge') => \App\CentralLogics\Helpers::format_currency($item['delivery_charge']),
                 translate('messages.total_order_amount') => \App\CentralLogics\Helpers::format_currency($item['order_amount']),
                 translate('messages.admin_discount') => \App\CentralLogics\Helpers::format_currency($item['admin_expense']),
                 translate('messages.store_discount') => \App\CentralLogics\Helpers::format_currency($item->order['store_discount_amount']),
@@ -2626,7 +2658,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                 translate('admin_net_income') => \App\CentralLogics\Helpers::format_currency($item['admin_commission']),
                 translate('store_net_income') => \App\CentralLogics\Helpers::format_currency($item['store_amount'] - $item['tax']),
                 translate('messages.amount_received_by') => $item['received_by'],
-                translate('messages.payment_method')=>translate(str_replace('_', ' ', $item->order['payment_method'])),
+                translate('messages.payment_method') => translate(str_replace('_', ' ', $item->order['payment_method'])),
                 translate('messages.payment_status') => $item->status ? translate("messages.refunded") : translate("messages.completed"),
             ];
         }
@@ -2634,18 +2666,19 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     }
 
 
-    public static function export_expense_wise_report($collection){
+    public static function export_expense_wise_report($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
-            if(isset($item->order->customer)){
-                $customer_name= $item->order->customer->f_name.' '.$item->order->customer->l_name;
+        foreach ($collection as $key => $item) {
+            if (isset($item->order->customer)) {
+                $customer_name = $item->order->customer->f_name . ' ' . $item->order->customer->l_name;
             }
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.order_id') => $item['order_id'],
                 translate('messages.expense_date') =>  $item['created_at'],
                 // translate('messages.expense_date') =>  $item->created_at->format('Y-m-d '.config('timeformat')),
-                translate('messages.type') => str::title( str_replace('_', ' ',  $item['type'])),
+                translate('messages.type') => str::title(str_replace('_', ' ',  $item['type'])),
                 translate('messages.customer_name') => $customer_name,
                 translate('messages.amount') => $item['amount'],
             ];
@@ -2653,50 +2686,53 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function export_item_wise_report($collection){
+    public static function export_item_wise_report($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.id') => $item['id'],
                 translate('messages.name') => $item['name'],
-                translate('messages.module') =>$item->module ? $item->module->module_name : '',
+                translate('messages.module') => $item->module ? $item->module->module_name : '',
                 translate('messages.store') => $item->store ? $item->store?->name : '',
                 translate('messages.order') => $item->orders_count,
                 translate('messages.price') => \App\CentralLogics\Helpers::format_currency($item->price),
                 translate('messages.total_amount_sold') => \App\CentralLogics\Helpers::format_currency($item->orders_sum_price),
                 translate('messages.total_discount_given') => \App\CentralLogics\Helpers::format_currency($item->orders_sum_discount_on_item),
-                translate('messages.average_sale_value') => $item->orders_count>0? \App\CentralLogics\Helpers::format_currency(($item->orders_sum_price-$item->orders_sum_discount_on_item)/$item->orders_count):0 ,
-                translate('messages.average_ratings') => round($item->avg_rating,1),
+                translate('messages.average_sale_value') => $item->orders_count > 0 ? \App\CentralLogics\Helpers::format_currency(($item->orders_sum_price - $item->orders_sum_discount_on_item) / $item->orders_count) : 0,
+                translate('messages.average_ratings') => round($item->avg_rating, 1),
             ];
         }
         return $data;
     }
 
-    public static function export_stock_wise_report($collection){
+    public static function export_stock_wise_report($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.id') => $item['id'],
                 translate('messages.name') => $item['name'],
-                translate('messages.store') => $item->store?$item->store?->name : '',
-                translate('messages.zone') => ($item->store && $item->store?->zone) ? $item->store?->zone->name:'',
+                translate('messages.store') => $item->store ? $item->store?->name : '',
+                translate('messages.zone') => ($item->store && $item->store?->zone) ? $item->store?->zone->name : '',
                 translate('messages.stock') => $item['stock'],
             ];
         }
         return $data;
     }
 
-    public static function export_delivery_men($collection){
+    public static function export_delivery_men($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.id') => $item['id'],
-                translate('messages.name') => $item->f_name.' '.$item->l_name,
+                translate('messages.name') => $item->f_name . ' ' . $item->l_name,
                 translate('messages.phone') => $item['phone'],
-                translate('messages.zone') => $item->zone?$item->zone->name:'',
+                translate('messages.zone') => $item->zone ? $item->zone->name : '',
                 translate('messages.total_order') => $item['order_count'],
                 translate('messages.currently_assigned_orders') => (int) $item['current_orders'],
                 translate('messages.status') => $item['status'],
@@ -2705,13 +2741,14 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function hex_to_rbg($color){
+    public static function hex_to_rbg($color)
+    {
         list($r, $g, $b) = sscanf($color, "#%02x%02x%02x");
         $output = "$r, $g, $b";
         return $output;
     }
 
-    public static function expenseCreate($amount,$type,$datetime,$created_by,$order_id=null,$store_id=null,$description='',$delivery_man_id=null,$user_id=null)
+    public static function expenseCreate($amount, $type, $datetime, $created_by, $order_id = null, $store_id = null, $description = '', $delivery_man_id = null, $user_id = null)
     {
         $expense = new Expense();
         $expense->amount = $amount;
@@ -2732,13 +2769,13 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         $result = [];
         $variation_price = 0;
 
-        foreach($variations as $k=> $variation){
-            foreach($product_variations as  $product_variation){
-                if( isset($variation['values']) && isset($product_variation['values']) && $product_variation['name'] == $variation['name']  ){
+        foreach ($variations as $k => $variation) {
+            foreach ($product_variations as  $product_variation) {
+                if (isset($variation['values']) && isset($product_variation['values']) && $product_variation['name'] == $variation['name']) {
                     $result[$k] = $product_variation;
                     $result[$k]['values'] = [];
-                    foreach($product_variation['values'] as $key=> $option){
-                        if(in_array($option['label'], $variation['values']['label'])){
+                    foreach ($product_variation['values'] as $key => $option) {
+                        if (in_array($option['label'], $variation['values']['label'])) {
                             $result[$k]['values'][] = $option;
                             $variation_price += $option['optionPrice'];
                         }
@@ -2747,7 +2784,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             }
         }
 
-        return ['price'=>$variation_price,'variations'=>$result];
+        return ['price' => $variation_price, 'variations' => $result];
     }
 
     public static function food_variation_price($product, $variations)
@@ -2760,10 +2797,10 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         //         $result = $value['price'];
         //     }
         // }
-        foreach($product as $product_variation){
-            foreach($product_variation['values'] as $option){
-                foreach($match as $variation){
-                    if($product_variation['name'] == $variation['name'] && isset($variation['values']) && in_array($option['label'], $variation['values']['label'])){
+        foreach ($product as $product_variation) {
+            foreach ($product_variation['values'] as $option) {
+                foreach ($match as $variation) {
+                    if ($product_variation['name'] == $variation['name'] && isset($variation['values']) && in_array($option['label'], $variation['values']['label'])) {
                         $result += $option['optionPrice'];
                     }
                 }
@@ -2775,7 +2812,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
     public static function gen_mpdf($view, $file_prefix, $file_postfix)
     {
-        $mpdf = new \Mpdf\Mpdf(['tempDir' => __DIR__ . '/../../storage/tmp','default_font' => 'Inter', 'mode' => 'utf-8', 'format' => [190, 250]]);
+        $mpdf = new \Mpdf\Mpdf(['tempDir' => __DIR__ . '/../../storage/tmp', 'default_font' => 'Inter', 'mode' => 'utf-8', 'format' => [190, 250]]);
         /* $mpdf->AddPage('XL', '', '', '', '', 10, 10, 10, '10', '270', '');*/
         $mpdf->autoScriptToLang = true;
         $mpdf->autoLangToFont = true;
@@ -2790,7 +2827,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     {
         $res = file_get_contents("https://translate.googleapis.com/translate_a/single?client=gtx&ie=UTF-8&oe=UTF-8&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t&dt=at&sl=" . $sl . "&tl=" . $tl . "&hl=hl&q=" . urlencode($q), $_SERVER['DOCUMENT_ROOT'] . "/transes.html");
         $res = json_decode($res);
-        return str_replace('_',' ',$res[0][0][0]);
+        return str_replace('_', ' ', $res[0][0][0]);
     }
 
     public static function getLanguageCode(string $country_code): string
@@ -2944,7 +2981,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         );
 
         foreach ($locales as $locale) {
-            $locale_region = explode('-',$locale);
+            $locale_region = explode('-', $locale);
             if ($country_code == $locale_region[0]) {
                 return $locale_region[0];
             }
@@ -2998,12 +3035,14 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     }
 
 
-    public static function product_tax($price , $tax, $is_include=false){
-        $price_tax = ($price * $tax) / (100 + ($is_include?$tax:0)) ;
+    public static function product_tax($price, $tax, $is_include = false)
+    {
+        $price_tax = ($price * $tax) / (100 + ($is_include ? $tax : 0));
         return $price_tax;
     }
 
-    public static function apple_client_secret(){
+    public static function apple_client_secret()
+    {
         // Set up the necessary variables
         $keyId = 'U7KA7F82UM';
         $teamId = '7WSYLQ8Y87';
@@ -3051,37 +3090,40 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $errors;
     }
 
-    public static function Export_generator($datas) {
+    public static function Export_generator($datas)
+    {
         foreach ($datas as $data) {
             yield $data;
         }
         return true;
     }
 
-    public static function export_addons($collection){
+    public static function export_addons($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'Id'=>$item->id,
-                'Name'=>$item->name,
-                'Price'=>$item->price,
-                'StoreId'=>$item->store_id,
-                'Status'=>$item->status == 1 ? 'active' : 'inactive'
+                'Id' => $item->id,
+                'Name' => $item->name,
+                'Price' => $item->price,
+                'StoreId' => $item->store_id,
+                'Status' => $item->status == 1 ? 'active' : 'inactive'
             ];
         }
         return $data;
     }
-    public static function export_categories($collection){
+    public static function export_categories($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'Id'=>$item->id,
-                'Name'=>$item->name,
-                'Image'=>$item->image,
-                'ParentId'=>$item->parent_id,
-                'Position'=>$item->position,
-                'Priority'=>$item->priority,
-                'Status'=>$item->status == 1 ? 'active' : 'inactive',
+                'Id' => $item->id,
+                'Name' => $item->name,
+                'Image' => $item->image,
+                'ParentId' => $item->parent_id,
+                'Position' => $item->position,
+                'Priority' => $item->priority,
+                'Status' => $item->status == 1 ? 'active' : 'inactive',
             ];
         }
         return $data;
@@ -3093,30 +3135,30 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $status;
     }
 
-    public static function text_variable_data_format($value,$user_name=null,$store_name=null,$delivery_man_name=null,$transaction_id=null,$order_id=null,$add_id= null)
+    public static function text_variable_data_format($value, $user_name = null, $store_name = null, $delivery_man_name = null, $transaction_id = null, $order_id = null, $add_id = null)
     {
         $data = $value;
         if ($value) {
-            if($user_name){
+            if ($user_name) {
                 $data =  str_replace("{userName}", $user_name, $data);
             }
 
-            if($store_name){
+            if ($store_name) {
                 $data =  str_replace("{storeName}", $store_name, $data);
             }
 
-            if($delivery_man_name){
+            if ($delivery_man_name) {
                 $data =  str_replace("{deliveryManName}", $delivery_man_name, $data);
             }
 
-            if($transaction_id){
+            if ($transaction_id) {
                 $data =  str_replace("{transactionId}", $transaction_id, $data);
             }
 
-            if($order_id){
+            if ($order_id) {
                 $data =  str_replace("{orderId}", $order_id, $data);
             }
-            if($add_id){
+            if ($add_id) {
                 $data =  str_replace("{advertisementId}", $add_id, $data);
             }
         }
@@ -3124,15 +3166,21 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function get_login_url($type){
-        $data=DataSetting::whereIn('key',['store_employee_login_url','store_login_url','admin_employee_login_url','admin_login_url'
-        ])->pluck('key','value')->toArray();
+    public static function get_login_url($type)
+    {
+        $data = DataSetting::whereIn('key', [
+            'store_employee_login_url',
+            'store_login_url',
+            'admin_employee_login_url',
+            'admin_login_url'
+        ])->pluck('key', 'value')->toArray();
 
-        return array_search($type,$data);
+        return array_search($type, $data);
     }
 
-    public static function react_activation_check($react_domain, $react_license_code){
-        $scheme = str_contains($react_domain, 'localhost')?'http://':'https://';
+    public static function react_activation_check($react_domain, $react_license_code)
+    {
+        $scheme = str_contains($react_domain, 'localhost') ? 'http://' : 'https://';
         $url = empty(parse_url($react_domain)['scheme']) ? $scheme . ltrim($react_domain, '/') : $react_domain;
         $response = Http::post('https://store.Sofara.com/api/v1/customer/license-check', [
             'domain_name' => str_ireplace('www.', '', parse_url($url, PHP_URL_HOST)),
@@ -3175,7 +3223,6 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                 }
                 return true;
             }
-
         } catch (\Exception $exception) {
             info($exception->getMessage());
 
@@ -3192,15 +3239,16 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return false;
     }
 
-    public static function react_domain_status_check(){
+    public static function react_domain_status_check()
+    {
         $data = self::get_business_settings('react_setup');
-        if($data && isset($data['react_domain']) && isset($data['react_license_code'])){
-            if(isset($data['react_platform']) && $data['react_platform'] == 'codecanyon'){
+        if ($data && isset($data['react_domain']) && isset($data['react_license_code'])) {
+            if (isset($data['react_platform']) && $data['react_platform'] == 'codecanyon') {
                 $data['status'] = (int)self::activation_submit($data['react_license_code']);
-            }elseif(!self::react_activation_check($data['react_domain'], $data['react_license_code'])){
-                $data['status']=0;
-            }elseif($data['status'] != 1){
-                $data['status']=1;
+            } elseif (!self::react_activation_check($data['react_domain'], $data['react_license_code'])) {
+                $data['status'] = 0;
+            } elseif ($data['status'] != 1) {
+                $data['status'] = 1;
             }
             DB::table('business_settings')->updateOrInsert(['key' => 'react_setup'], [
                 'value' => json_encode($data)
@@ -3208,17 +3256,18 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         }
     }
 
-    public static function export_order_transaction_report($collection){
+    public static function export_order_transaction_report($collection)
+    {
         $data = [];
-        foreach($collection as $key=>$item){
+        foreach ($collection as $key => $item) {
             $data[] = [
-                'SL'=>$key+1,
+                'SL' => $key + 1,
                 translate('messages.id') => $item['id'],
                 translate('messages.vendor_id') => $item['vendor_id'],
                 translate('messages.delivery_man_id') => $item['delivery_man_id'],
                 translate('messages.order_id') => $item['order_id'],
                 translate('messages.order_amount') => $item['order_amount'],
-                translate('messages.store_amount') => $item['store_amount']-$item['tax'],
+                translate('messages.store_amount') => $item['store_amount'] - $item['tax'],
                 translate('messages.admin_commission') => $item['admin_commission'],
                 translate('messages.received_by') => $item['received_by'],
                 translate('messages.status') => $item['status'],
@@ -3240,59 +3289,66 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function get_zones_name($zones){
-        if(is_array($zones)){
-            $data = Zone::whereIn('id',$zones)->pluck('name')->toArray();
-        }else{
-            $data = Zone::where('id',$zones)->pluck('name')->toArray();
+    public static function get_zones_name($zones)
+    {
+        if (is_array($zones)) {
+            $data = Zone::whereIn('id', $zones)->pluck('name')->toArray();
+        } else {
+            $data = Zone::where('id', $zones)->pluck('name')->toArray();
         }
         $data = implode(', ', $data);
         return $data;
     }
 
-    public static function get_stores_name($stores){
-        if(is_array($stores)){
-            $data = Store::whereIn('id',$stores)->pluck('name')->toArray();
-        }else{
-            $data = Store::where('id',$stores)->pluck('name')->toArray();
+    public static function get_stores_name($stores)
+    {
+        if (is_array($stores)) {
+            $data = Store::whereIn('id', $stores)->pluck('name')->toArray();
+        } else {
+            $data = Store::where('id', $stores)->pluck('name')->toArray();
         }
         $data = implode(', ', $data);
         return $data;
     }
 
-    public static function get_category_name($id){
-        $id=Json_decode($id,true);
-        $id=data_get($id,'0.id','NA');
-        return Category::where('id',$id)->first()?->name;
+    public static function get_category_name($id)
+    {
+        $id = Json_decode($id, true);
+        $id = data_get($id, '0.id', 'NA');
+        return Category::where('id', $id)->first()?->name;
     }
-    public static function get_sub_category_name($id){
-        $id=Json_decode($id,true);
-        $id=data_get($id,'1.id','NA');
-        return Category::where('id',$id)->first()?->name;
+    public static function get_sub_category_name($id)
+    {
+        $id = Json_decode($id, true);
+        $id = data_get($id, '1.id', 'NA');
+        return Category::where('id', $id)->first()?->name;
     }
-    public static function get_attributes($choice_options){
-        try{
-            $data=[];
-            foreach((array)json_decode($choice_options) as $key => $choice){
-                $data[$choice->title] =$choice->options;
+    public static function get_attributes($choice_options)
+    {
+        try {
+            $data = [];
+            foreach ((array)json_decode($choice_options) as $key => $choice) {
+                $data[$choice->title] = $choice->options;
             }
-            return str_ireplace(['\'', '"', '{','}', '[',']', ';', '<', '>', '?'], ' ',json_encode($data));
+            return str_ireplace(['\'', '"', '{', '}', '[', ']', ';', '<', '>', '?'], ' ', json_encode($data));
         } catch (\Exception $ex) {
-            info(["line___{$ex->getLine()}",$ex->getMessage()]);
+            info(["line___{$ex->getLine()}", $ex->getMessage()]);
             return 0;
         }
     }
 
-    public static function get_module_name($id){
-        return Module::where('id',$id)->first()?->module_name;
+    public static function get_module_name($id)
+    {
+        return Module::where('id', $id)->first()?->module_name;
     }
 
-    public static function get_food_variations($variations){
-        try{
-            $data=[];
-            $data2=[];
-            foreach((array)json_decode($variations,true) as $key => $choice){
-                foreach($choice['values'] as $k => $v){
+    public static function get_food_variations($variations)
+    {
+        try {
+            $data = [];
+            $data2 = [];
+            foreach ((array)json_decode($variations, true) as $key => $choice) {
+                foreach ($choice['values'] as $k => $v) {
                     $data2[$k] =  $v['label'];
                     // if(!next($choice['values'] )) {
                     //     $data2[$k] =  $v['label'].";";
@@ -3300,38 +3356,40 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                 }
                 $data[$choice['name']] = $data2;
             }
-            return str_ireplace(['\'', '"', '{','}', '[',']', '<', '>', '?'], ' ',json_encode($data));
+            return str_ireplace(['\'', '"', '{', '}', '[', ']', '<', '>', '?'], ' ', json_encode($data));
         } catch (\Exception $ex) {
-            info(["line___{$ex->getLine()}",$ex->getMessage()]);
+            info(["line___{$ex->getLine()}", $ex->getMessage()]);
             return 0;
         }
-
     }
 
-    public static function get_customer_name($id){
-        $user = User::where('id',$id)->first();
+    public static function get_customer_name($id)
+    {
+        $user = User::where('id', $id)->first();
 
-        return $user->f_name.' '.$user->l_name;
+        return $user->f_name . ' ' . $user->l_name;
     }
-    public static function get_addon_data($id){
-        try{
-            $data=[];
-            $addon= AddOn::whereIn('id',json_decode($id, true))->get(['name','price'])->toArray();
-            foreach($addon as $key => $value){
-                $data[$key]= $value['name'] .' - ' .\App\CentralLogics\Helpers::format_currency($value['price']);
+    public static function get_addon_data($id)
+    {
+        try {
+            $data = [];
+            $addon = AddOn::whereIn('id', json_decode($id, true))->get(['name', 'price'])->toArray();
+            foreach ($addon as $key => $value) {
+                $data[$key] = $value['name'] . ' - ' . \App\CentralLogics\Helpers::format_currency($value['price']);
             }
-            return str_ireplace(['\'', '"', '{','}', '[',']', '<', '>', '?'], ' ',json_encode($data, JSON_UNESCAPED_UNICODE));
+            return str_ireplace(['\'', '"', '{', '}', '[', ']', '<', '>', '?'], ' ', json_encode($data, JSON_UNESCAPED_UNICODE));
         } catch (\Exception $ex) {
-            info(["line___{$ex->getLine()}",$ex->getMessage()]);
+            info(["line___{$ex->getLine()}", $ex->getMessage()]);
             return 0;
         }
     }
 
 
 
-    public static function add_or_update_translations($request, $key_data,$name_field ,$model_name, $data_id,$data_value ){
-        try{
-            $model = 'App\\Models\\'.$model_name;
+    public static function add_or_update_translations($request, $key_data, $name_field, $model_name, $data_id, $data_value)
+    {
+        try {
+            $model = 'App\\Models\\' . $model_name;
             $default_lang = str_replace('_', '-', app()->getLocale());
             foreach ($request->lang as $index => $key) {
                 if ($default_lang == $key && !($request->{$name_field}[$index])) {
@@ -3361,21 +3419,22 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                 }
             }
             return true;
-        } catch(\Exception $e){
-            info(["line___{$e->getLine()}",$e->getMessage()]);
+        } catch (\Exception $e) {
+            info(["line___{$e->getLine()}", $e->getMessage()]);
             return false;
         }
     }
 
-    public static function offline_payment_formater($user_data){
+    public static function offline_payment_formater($user_data)
+    {
         $userInputs = [];
 
-        $user_inputes=  json_decode($user_data->payment_info, true);
-        $method_name= $user_inputes['method_name'];
-        $method_id= $user_inputes['method_id'];
+        $user_inputes =  json_decode($user_data->payment_info, true);
+        $method_name = $user_inputes['method_name'];
+        $method_id = $user_inputes['method_id'];
 
         foreach ($user_inputes as $key => $value) {
-            if(!in_array($key,['method_name','method_id'])){
+            if (!in_array($key, ['method_name', 'method_id'])) {
                 $userInput = [
                     'user_input' => $key,
                     'user_data' => $value,
@@ -3395,25 +3454,29 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         $result = [
             'input' => $userInputs,
             'data' => $data,
-            'method_fields' =>json_decode($user_data->method_fields ,true),
+            'method_fields' => json_decode($user_data->method_fields, true),
         ];
 
         return $result;
     }
 
-    public static function time_date_format($data){
-        $time=config('timeformat') ?? 'H:i';
+    public static function time_date_format($data)
+    {
+        $time = config('timeformat') ?? 'H:i';
         return  Carbon::parse($data)->locale(app()->getLocale())->translatedFormat('d M Y ' . $time);
     }
-    public static function date_format($data){
+    public static function date_format($data)
+    {
         return  Carbon::parse($data)->locale(app()->getLocale())->translatedFormat('d M Y');
     }
-    public static function time_format($data){
-        $time=config('timeformat') ?? 'H:i';
+    public static function time_format($data)
+    {
+        $time = config('timeformat') ?? 'H:i';
         return  Carbon::parse($data)->locale(app()->getLocale())->translatedFormat($time);
     }
 
-    public static function get_full_url($path,$data,$type,$placeholder = null){
+    public static function get_full_url($path, $data, $type, $placeholder = null)
+    {
         $place_holders = [
             'default' => asset('public/assets/admin/img/100x100/2.jpg'),
             'business' => asset('public/assets/admin/img/160x160/img2.jpg'),
@@ -3456,16 +3519,16 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         ];
 
         try {
-            if ($data && $type == 's3' && Storage::disk('s3')->exists($path .'/'. $data)) {
-                return Storage::disk('s3')->url($path .'/'. $data);
-//                $awsUrl = config('filesystems.disks.s3.url');
-//                $awsBucket = config('filesystems.disks.s3.bucket');
-//                return rtrim($awsUrl, '/') . '/' . ltrim($awsBucket . '/' . $path . '/' . $data, '/');
+            if ($data && $type == 's3' && Storage::disk('s3')->exists($path . '/' . $data)) {
+                return Storage::disk('s3')->url($path . '/' . $data);
+                //                $awsUrl = config('filesystems.disks.s3.url');
+                //                $awsBucket = config('filesystems.disks.s3.bucket');
+                //                return rtrim($awsUrl, '/') . '/' . ltrim($awsBucket . '/' . $path . '/' . $data, '/');
             }
-        } catch (\Exception $e){
+        } catch (\Exception $e) {
         }
 
-        if ($data && Storage::disk('public')->exists($path .'/'. $data)) {
+        if ($data && Storage::disk('public')->exists($path . '/' . $data)) {
             return asset('storage/app/public') . '/' . $path . '/' . $data;
         }
 
@@ -3473,11 +3536,11 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             return null;
         }
 
-        if(isset($placeholder) && array_key_exists($placeholder, $place_holders)){
+        if (isset($placeholder) && array_key_exists($placeholder, $place_holders)) {
             return $place_holders[$placeholder];
-        }elseif(array_key_exists($path, $place_holders)){
+        } elseif (array_key_exists($path, $place_holders)) {
             return $place_holders[$path];
-        }else{
+        } else {
             return $place_holders['default'];
         }
 
@@ -3486,167 +3549,165 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
 
 
-    public static function create_storage($model,$data_id){
-        $config=self::get_business_settings('local_storage');
-        $value = isset($config)?($config==0?'s3':'public'):'public';
-           return DB::table('storages')->updateOrInsert(['data_type' => $model,'data_id' => $data_id], [
-                'value' => $value,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+    public static function create_storage($model, $data_id)
+    {
+        $config = self::get_business_settings('local_storage');
+        $value = isset($config) ? ($config == 0 ? 's3' : 'public') : 'public';
+        return DB::table('storages')->updateOrInsert(['data_type' => $model, 'data_id' => $data_id], [
+            'value' => $value,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
 
-    public static function getCalculatedCashBackAmount($amount,$customer_id){
-        $data=[
-            'calculated_amount'=> (float) 0,
-            'cashback_amount'=>0,
-            'cashback_type'=>'',
-            'min_purchase'=>0,
-            'max_discount'=>0,
-            'id'=>0,
+    public static function getCalculatedCashBackAmount($amount, $customer_id)
+    {
+        $data = [
+            'calculated_amount' => (float) 0,
+            'cashback_amount' => 0,
+            'cashback_type' => '',
+            'min_purchase' => 0,
+            'max_discount' => 0,
+            'id' => 0,
         ];
 
         try {
             $percent_bonus = CashBack::active()
-            ->where('cashback_type', 'percentage')
-            ->Running()
-            ->where('min_purchase', '<=', $amount)
-            ->where(function($query) use ($customer_id) {
-                $query->whereJsonContains('customer_id', [$customer_id])->orWhereJsonContains('customer_id', ['all']);
-            })
-                ->when(is_numeric($customer_id), function($q) use ($customer_id){
-                $q->where('same_user_limit', '>', function($query) use ($customer_id) {
-                    $query->select(DB::raw('COUNT(*)'))
+                ->where('cashback_type', 'percentage')
+                ->Running()
+                ->where('min_purchase', '<=', $amount)
+                ->where(function ($query) use ($customer_id) {
+                    $query->whereJsonContains('customer_id', [$customer_id])->orWhereJsonContains('customer_id', ['all']);
+                })
+                ->when(is_numeric($customer_id), function ($q) use ($customer_id) {
+                    $q->where('same_user_limit', '>', function ($query) use ($customer_id) {
+                        $query->select(DB::raw('COUNT(*)'))
                             ->from('cash_back_histories')
                             ->where('user_id', $customer_id)
                             ->whereColumn('cash_back_id', 'cash_backs.id');
                     });
                 })
 
-            ->orderBy('cashback_amount', 'desc')
-            ->first();
+                ->orderBy('cashback_amount', 'desc')
+                ->first();
 
-            $amount_bonus = CashBack::active()->where('cashback_type','amount')
-            ->Running()
-            ->where(function($query)use($customer_id){
-                $query->whereJsonContains('customer_id', [$customer_id])->orWhereJsonContains('customer_id', ['all']);
-            })
-            ->where('min_purchase','<=',$amount )
-            ->when(is_numeric($customer_id), function($q) use ($customer_id){
-                $q->where('same_user_limit', '>', function($query) use ($customer_id) {
-                    $query->select(DB::raw('COUNT(*)'))
+            $amount_bonus = CashBack::active()->where('cashback_type', 'amount')
+                ->Running()
+                ->where(function ($query) use ($customer_id) {
+                    $query->whereJsonContains('customer_id', [$customer_id])->orWhereJsonContains('customer_id', ['all']);
+                })
+                ->where('min_purchase', '<=', $amount)
+                ->when(is_numeric($customer_id), function ($q) use ($customer_id) {
+                    $q->where('same_user_limit', '>', function ($query) use ($customer_id) {
+                        $query->select(DB::raw('COUNT(*)'))
                             ->from('cash_back_histories')
                             ->where('user_id', $customer_id)
                             ->whereColumn('cash_back_id', 'cash_backs.id');
                     });
                 })
-            ->orderBy('cashback_amount','desc')->first();
+                ->orderBy('cashback_amount', 'desc')->first();
 
-            if($percent_bonus && ($amount >=$percent_bonus->min_purchase)){
-                $p_bonus = ($amount  * $percent_bonus->cashback_amount)/100;
+            if ($percent_bonus && ($amount >= $percent_bonus->min_purchase)) {
+                $p_bonus = ($amount  * $percent_bonus->cashback_amount) / 100;
                 $p_bonus = $p_bonus > $percent_bonus->max_discount ? $percent_bonus->max_discount : $p_bonus;
-                $p_bonus = round($p_bonus,config('round_up_to_digit'));
-            }else{
+                $p_bonus = round($p_bonus, config('round_up_to_digit'));
+            } else {
                 $p_bonus = 0;
             }
 
-            if($amount_bonus && ($amount >=$amount_bonus->min_purchase)){
-                $a_bonus = $amount_bonus?$amount_bonus->cashback_amount: 0;
-                $a_bonus = round($a_bonus,config('round_up_to_digit'));
-            }else{
+            if ($amount_bonus && ($amount >= $amount_bonus->min_purchase)) {
+                $a_bonus = $amount_bonus ? $amount_bonus->cashback_amount : 0;
+                $a_bonus = round($a_bonus, config('round_up_to_digit'));
+            } else {
                 $a_bonus = 0;
             }
 
-            $cashback_amount = max([$p_bonus,$a_bonus]);
+            $cashback_amount = max([$p_bonus, $a_bonus]);
 
-            if($p_bonus ==  $cashback_amount){
-                $data=[
-                    'calculated_amount'=> (float)$cashback_amount,
-                    'cashback_amount'=>$percent_bonus?->cashback_amount ?? 0,
-                    'cashback_type'=>$percent_bonus?->cashback_type ?? '',
-                    'min_purchase'=>$percent_bonus?->min_purchase ?? 0,
-                    'max_discount'=>$percent_bonus?->max_discount ?? 0,
-                    'id'=>$percent_bonus?->id,
+            if ($p_bonus ==  $cashback_amount) {
+                $data = [
+                    'calculated_amount' => (float)$cashback_amount,
+                    'cashback_amount' => $percent_bonus?->cashback_amount ?? 0,
+                    'cashback_type' => $percent_bonus?->cashback_type ?? '',
+                    'min_purchase' => $percent_bonus?->min_purchase ?? 0,
+                    'max_discount' => $percent_bonus?->max_discount ?? 0,
+                    'id' => $percent_bonus?->id,
                 ];
-
-            } elseif($a_bonus == $cashback_amount){
-                $data=[
-                    'calculated_amount'=> (float)$cashback_amount,
-                    'cashback_amount'=>$amount_bonus?->cashback_amount ?? 0,
-                    'cashback_type'=>$amount_bonus?->cashback_type ?? '',
-                    'min_purchase'=>$amount_bonus?->min_purchase ?? 0,
-                    'max_discount'=>$amount_bonus?->max_discount ?? 0,
-                    'id'=>$amount_bonus?->id,
+            } elseif ($a_bonus == $cashback_amount) {
+                $data = [
+                    'calculated_amount' => (float)$cashback_amount,
+                    'cashback_amount' => $amount_bonus?->cashback_amount ?? 0,
+                    'cashback_type' => $amount_bonus?->cashback_type ?? '',
+                    'min_purchase' => $amount_bonus?->min_purchase ?? 0,
+                    'max_discount' => $amount_bonus?->max_discount ?? 0,
+                    'id' => $amount_bonus?->id,
                 ];
             }
 
-            return $data ;
+            return $data;
         } catch (\Exception $exception) {
-            info([$exception->getFile(),$exception->getLine(),$exception->getMessage()]);
-            return $data ;
+            info([$exception->getFile(), $exception->getLine(), $exception->getMessage()]);
+            return $data;
         }
-
     }
 
 
 
-     public static function getCusromerFirstOrderDiscount($order_count, $user_creation_date,$refby, $price = null){
+    public static function getCusromerFirstOrderDiscount($order_count, $user_creation_date, $refby, $price = null)
+    {
 
-        $data=[
+        $data = [
             'is_valid' => false,
             'discount_amount' => 0,
             'discount_amount_type' => '',
             'validity' => '',
             'calculated_amount' => 0,
         ];
-        if($order_count > 0 || !$refby){
-            return $data?? [];
+        if ($order_count > 0 || !$refby) {
+            return $data ?? [];
         }
-    $settings =  array_column(BusinessSetting::whereIn('key',['new_customer_discount_status','new_customer_discount_amount','new_customer_discount_amount_type','new_customer_discount_amount_validity','new_customer_discount_validity_type',])->get()->toArray(), 'value', 'key');
+        $settings =  array_column(BusinessSetting::whereIn('key', ['new_customer_discount_status', 'new_customer_discount_amount', 'new_customer_discount_amount_type', 'new_customer_discount_amount_validity', 'new_customer_discount_validity_type',])->get()->toArray(), 'value', 'key');
 
-        $validity_value = data_get($settings,'new_customer_discount_amount_validity');
-        $validity_unit = data_get($settings,'new_customer_discount_validity_type');
+        $validity_value = data_get($settings, 'new_customer_discount_amount_validity');
+        $validity_unit = data_get($settings, 'new_customer_discount_validity_type');
 
-        if($validity_unit == 'day'){
+        if ($validity_unit == 'day') {
             $validity_end_date = (new DateTime($user_creation_date))->modify("+$validity_value day");
-
-        } elseif($validity_unit == 'month'){
+        } elseif ($validity_unit == 'month') {
             $validity_end_date = (new DateTime($user_creation_date))->modify("+$validity_value month");
-
-        } elseif($validity_unit == 'year'){
+        } elseif ($validity_unit == 'year') {
             $validity_end_date = (new DateTime($user_creation_date))->modify("+$validity_value year");
-        }
-        else{
+        } else {
             $validity_end_date = (new DateTime($user_creation_date))->modify("-1 day");
         }
 
-        $is_valid=false;
+        $is_valid = false;
         $current_date = new DateTime();
-        if($validity_end_date >= $current_date){
-        $is_valid=true;
+        if ($validity_end_date >= $current_date) {
+            $is_valid = true;
         }
 
 
 
-    if($order_count == 0 && $is_valid && data_get($settings,'new_customer_discount_status' ) == 1 && data_get($settings,'new_customer_discount_amount' ) > 0 ){
-        $calculated_amount=0;
-        if(data_get($settings,'new_customer_discount_amount_type') == 'percentage' && isset($price)){
-            $calculated_amount= ($price / 100) * data_get($settings,'new_customer_discount_amount');
-        } else{
-            $calculated_amount=data_get($settings,'new_customer_discount_amount');
+        if ($order_count == 0 && $is_valid && data_get($settings, 'new_customer_discount_status') == 1 && data_get($settings, 'new_customer_discount_amount') > 0) {
+            $calculated_amount = 0;
+            if (data_get($settings, 'new_customer_discount_amount_type') == 'percentage' && isset($price)) {
+                $calculated_amount = ($price / 100) * data_get($settings, 'new_customer_discount_amount');
+            } else {
+                $calculated_amount = data_get($settings, 'new_customer_discount_amount');
+            }
+
+            $data = [
+                'is_valid' => $is_valid,
+                'discount_amount' => data_get($settings, 'new_customer_discount_amount'),
+                'discount_amount_type' => data_get($settings, 'new_customer_discount_amount_type'),
+                'validity' => data_get($settings, 'new_customer_discount_amount_validity') . ' ' . translate(Str::plural((data_get($settings, 'new_customer_discount_validity_type') ?? 'day'), data_get($settings, 'new_customer_discount_amount_validity'))),
+                'calculated_amount' => round($calculated_amount, config('round_up_to_digit')),
+            ];
         }
 
-        $data=[
-            'is_valid' => $is_valid,
-            'discount_amount' => data_get($settings,'new_customer_discount_amount'),
-            'discount_amount_type' => data_get($settings,'new_customer_discount_amount_type'),
-            'validity' => data_get($settings,'new_customer_discount_amount_validity') .' '. translate(Str::plural((data_get($settings,'new_customer_discount_validity_type') ?? 'day'),data_get($settings,'new_customer_discount_amount_validity'))),
-            'calculated_amount' => round($calculated_amount,config('round_up_to_digit')),
-        ];
-    }
-
-    return $data?? [];
+        return $data ?? [];
     }
 
 
@@ -3669,194 +3730,188 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     }
 
 
-    public static function subscriptionConditionsCheck($store_id ,$package_id,){
-        $store=Store::findOrFail($store_id);
+    public static function subscriptionConditionsCheck($store_id, $package_id,)
+    {
+        $store = Store::findOrFail($store_id);
         $package = SubscriptionPackage::withoutGlobalScope('translate')->find($package_id);
 
-        $total_food= $store->items()->withoutGlobalScope(\App\Scopes\StoreScope::class)->count();
-        if ($package->max_product != 'unlimited' &&  $total_food >= $package->max_product  ){
+        $total_food = $store->items()->withoutGlobalScope(\App\Scopes\StoreScope::class)->count();
+        if ($package->max_product != 'unlimited' &&  $total_food >= $package->max_product) {
             return ['disable_item_count' => $total_food - $package->max_product];
             // return 'downgrade_error';
         }
         return null;
     }
-    public static function subscription_plan_chosen($store_id ,$package_id, $payment_method  ,$discount = 0,$pending_bill =0,$reference=null ,$type=null){
-        $store=Store::find($store_id);
+    public static function subscription_plan_chosen($store_id, $package_id, $payment_method, $discount = 0, $pending_bill = 0, $reference = null, $type = null)
+    {
+        $store = Store::find($store_id);
         $package = SubscriptionPackage::withoutGlobalScope('translate')->find($package_id);
-        $add_days=0;
-        $add_orders=0;
+        $add_days = 0;
+        $add_orders = 0;
 
         try {
-            $store_subscription=$store->store_sub;
+            $store_subscription = $store->store_sub;
             if (isset($store_subscription) && $type == 'renew') {
-                $store_subscription->total_package_renewed= $store_subscription->total_package_renewed + 1;
+                $store_subscription->total_package_renewed = $store_subscription->total_package_renewed + 1;
 
-                $day_left=$store_subscription->expiry_date_parsed->format('Y-m-d');
+                $day_left = $store_subscription->expiry_date_parsed->format('Y-m-d');
                 if (Carbon::now()->diffInDays($day_left, false) > 0 && $store_subscription->is_canceled != 1) {
-                    $add_days= Carbon::now()->subDays(1)->diffInDays($day_left, false);
+                    $add_days = Carbon::now()->subDays(1)->diffInDays($day_left, false);
                 }
                 if ($store_subscription->max_order != 'unlimited' && $store_subscription->max_order > 0) {
-                    $add_orders=$store_subscription->max_order;
+                    $add_orders = $store_subscription->max_order;
                 }
-
-            }
-            elseif($store->store_sub_update_application && $store->store_sub_update_application->package_id == $package->id && $type == 'renew' ){
-                $store_subscription=$store->store_sub_update_application;
-                $store_subscription->total_package_renewed= $store_subscription->total_package_renewed + 1;
-            }
-
-            else{
+            } elseif ($store->store_sub_update_application && $store->store_sub_update_application->package_id == $package->id && $type == 'renew') {
+                $store_subscription = $store->store_sub_update_application;
+                $store_subscription->total_package_renewed = $store_subscription->total_package_renewed + 1;
+            } else {
                 self::calculateSubscriptionRefundAmount($store);
-                StoreSubscription::where('store_id',$store->id)->update([
+                StoreSubscription::where('store_id', $store->id)->update([
                     'status' => 0,
                 ]);
-                $store_subscription =new StoreSubscription();
-                $store_subscription->total_package_renewed= 0;
-
-                }
-
-            $store_subscription->is_trial= 0;
-            $store_subscription->renewed_at=now();
-            $store_subscription->package_id=$package->id;
-            $store_subscription->store_id=$store->id;
-            if ($payment_method  == 'free_trial' ) {
-
-                $free_trial_period= BusinessSetting::where(['key' => 'subscription_free_trial_days'])->first()?->value ?? 1;
-
-                $store_subscription->expiry_date= Carbon::now()->addDays($free_trial_period)->format('Y-m-d');
-                $store_subscription->validity= $free_trial_period;
+                $store_subscription = new StoreSubscription();
+                $store_subscription->total_package_renewed = 0;
             }
-            else{
-                $store_subscription->expiry_date= Carbon::now()->addDays($package->validity+$add_days)->format('Y-m-d');
-                $store_subscription->validity=$package->validity+$add_days;
+
+            $store_subscription->is_trial = 0;
+            $store_subscription->renewed_at = now();
+            $store_subscription->package_id = $package->id;
+            $store_subscription->store_id = $store->id;
+            if ($payment_method  == 'free_trial') {
+
+                $free_trial_period = BusinessSetting::where(['key' => 'subscription_free_trial_days'])->first()?->value ?? 1;
+
+                $store_subscription->expiry_date = Carbon::now()->addDays($free_trial_period)->format('Y-m-d');
+                $store_subscription->validity = $free_trial_period;
+            } else {
+                $store_subscription->expiry_date = Carbon::now()->addDays($package->validity + $add_days)->format('Y-m-d');
+                $store_subscription->validity = $package->validity + $add_days;
             }
-            if($package->max_order != 'unlimited'){
-                $store_subscription->max_order=$package->max_order + $add_orders;
-            } else{
-                $store_subscription->max_order=$package->max_order;
+            if ($package->max_order != 'unlimited') {
+                $store_subscription->max_order = $package->max_order + $add_orders;
+            } else {
+                $store_subscription->max_order = $package->max_order;
             }
 
 
-            $store_subscription->max_product=$package->max_product;
-            $store_subscription->pos=$package->pos;
-            $store_subscription->mobile_app=$package->mobile_app;
-            $store_subscription->chat=$package->chat;
-            $store_subscription->review=$package->review;
-            $store_subscription->self_delivery=$package->self_delivery;
-            $store_subscription->is_canceled=0;
-            $store_subscription->canceled_by='none';
+            $store_subscription->max_product = $package->max_product;
+            $store_subscription->pos = $package->pos;
+            $store_subscription->mobile_app = $package->mobile_app;
+            $store_subscription->chat = $package->chat;
+            $store_subscription->review = $package->review;
+            $store_subscription->self_delivery = $package->self_delivery;
+            $store_subscription->is_canceled = 0;
+            $store_subscription->canceled_by = 'none';
 
-            $store->item_section= 1;
-            $store->pos_system= 1;
-            if ($type == 'new_join' && $store->vendor?->status == 0 ) {
-                $store->status= 0;
-                $store_subscription->status= 0;
-
-            }else{
-                $store->status= 1;
-                $store_subscription->status= 1;
-
+            $store->item_section = 1;
+            $store->pos_system = 1;
+            if ($type == 'new_join' && $store->vendor?->status == 0) {
+                $store->status = 0;
+                $store_subscription->status = 0;
+            } else {
+                $store->status = 1;
+                $store_subscription->status = 1;
             }
 
             // For Store Free Delivery
-            if($store->free_delivery == 1 && $package->self_delivery == 1){
-                $store->free_delivery = 1 ;
-            } else{
-                $store->free_delivery = 0 ;
-                $store->coupon()->where('created_by','vendor')->where('coupon_type','free_delivery')->delete();
+            if ($store->free_delivery == 1 && $package->self_delivery == 1) {
+                $store->free_delivery = 1;
+            } else {
+                $store->free_delivery = 0;
+                $store->coupon()->where('created_by', 'vendor')->where('coupon_type', 'free_delivery')->delete();
             }
 
 
-            $store->reviews_section= 1;
-            $store->self_delivery_system= 1;
-            $store->store_business_model= 'subscription';
+            $store->reviews_section = 1;
+            $store->self_delivery_system = 1;
+            $store->store_business_model = 'subscription';
 
-            $subscription_transaction= new SubscriptionTransaction();
+            $subscription_transaction = new SubscriptionTransaction();
 
-            $subscription_transaction->package_id=$package->id;
-            $subscription_transaction->store_id=$store->id;
-            $subscription_transaction->price=$package->price;
+            $subscription_transaction->package_id = $package->id;
+            $subscription_transaction->store_id = $store->id;
+            $subscription_transaction->price = $package->price;
 
-            $subscription_transaction->validity=$package->validity;
-            $subscription_transaction->paid_amount= $package->price - (($package->price*$discount)/100) + $pending_bill;
+            $subscription_transaction->validity = $package->validity;
+            $subscription_transaction->paid_amount = $package->price - (($package->price * $discount) / 100) + $pending_bill;
 
             $subscription_transaction->payment_status = 'success';
-            $subscription_transaction->created_by=  in_array($payment_method,['wallet_payment_by_admin','manual_payment_by_admin' ,'plan_shift_by_admin'] )?'Admin': 'Store';
+            $subscription_transaction->created_by =  in_array($payment_method, ['wallet_payment_by_admin', 'manual_payment_by_admin', 'plan_shift_by_admin']) ? 'Admin' : 'Store';
 
             if ($payment_method  == 'free_trial') {
-                $subscription_transaction->validity= $free_trial_period;
-                $subscription_transaction->paid_amount= 0;
-                $subscription_transaction->is_trial= 1;
-                $store_subscription->is_trial= 1;
-            }
-            elseif($payment_method  == 'pay_now'){
-                $subscription_transaction->payment_status ='on_hold';
+                $subscription_transaction->validity = $free_trial_period;
+                $subscription_transaction->paid_amount = 0;
+                $subscription_transaction->is_trial = 1;
+                $store_subscription->is_trial = 1;
+            } elseif ($payment_method  == 'pay_now') {
+                $subscription_transaction->payment_status = 'on_hold';
                 $subscription_transaction->transaction_status = 0;
-                $store_subscription->status= 0;
+                $store_subscription->status = 0;
             }
 
 
 
-            $subscription_transaction->payment_method=$payment_method;
-            $subscription_transaction->reference=$reference ?? null;
-            $subscription_transaction->discount=$discount ?? 0;
-            if(in_array($type ,['renew','free_trial'])){
-                $subscription_transaction->plan_type=$type;
-            } elseif(StoreSubscription::where('store_id',$store->id)->where('is_trial',0)->count() > 0 || $reference == 'plan_shift_by_admin'){
-                $subscription_transaction->plan_type='new_plan';
+            $subscription_transaction->payment_method = $payment_method;
+            $subscription_transaction->reference = $reference ?? null;
+            $subscription_transaction->discount = $discount ?? 0;
+            if (in_array($type, ['renew', 'free_trial'])) {
+                $subscription_transaction->plan_type = $type;
+            } elseif (StoreSubscription::where('store_id', $store->id)->where('is_trial', 0)->count() > 0 || $reference == 'plan_shift_by_admin') {
+                $subscription_transaction->plan_type = 'new_plan';
             }
 
 
-            $subscription_transaction->package_details=[
-                'pos'=>$package->pos,
-                'review'=>$package->review,
-                'self_delivery'=>$package->self_delivery,
-                'chat'=>$package->chat,
-                'mobile_app'=>$package->mobile_app,
-                'max_order'=>$package->max_order,
-                'max_product'=>$package->max_product,
+            $subscription_transaction->package_details = [
+                'pos' => $package->pos,
+                'review' => $package->review,
+                'self_delivery' => $package->self_delivery,
+                'chat' => $package->chat,
+                'mobile_app' => $package->mobile_app,
+                'max_order' => $package->max_order,
+                'max_product' => $package->max_product,
             ];
             DB::beginTransaction();
             $store->save();
             $subscription_transaction->save();
             $store_subscription->save();
             DB::commit();
-            $subscription_transaction->store_subscription_id= $store_subscription->id;
+            $subscription_transaction->store_subscription_id = $store_subscription->id;
             $subscription_transaction->save();
 
-            SubscriptionBillingAndRefundHistory::where(['store_id'=>$store->id,
-            'transaction_type'=>'pending_bill', 'is_success' =>0])->update([
-                'is_success'=> 1,
-                'reference'=> 'payment_via_'.$payment_method.' _transaction_id_'.$subscription_transaction->id
+            SubscriptionBillingAndRefundHistory::where([
+                'store_id' => $store->id,
+                'transaction_type' => 'pending_bill',
+                'is_success' => 0
+            ])->update([
+                'is_success' => 1,
+                'reference' => 'payment_via_' . $payment_method . ' _transaction_id_' . $subscription_transaction->id
             ]);
 
-            if($reference == 'plan_shift_by_admin'){
-                $billing= new SubscriptionBillingAndRefundHistory();
-                $billing->store_id= $store->id;
-                $billing->subscription_id= $store_subscription->id;
-                $billing->package_id= $store_subscription->package_id;
-                $billing->transaction_type= 'pending_bill';
-                $billing->is_success= 0;
-                $billing->amount= $package->price;
+            if ($reference == 'plan_shift_by_admin') {
+                $billing = new SubscriptionBillingAndRefundHistory();
+                $billing->store_id = $store->id;
+                $billing->subscription_id = $store_subscription->id;
+                $billing->package_id = $store_subscription->package_id;
+                $billing->transaction_type = 'pending_bill';
+                $billing->is_success = 0;
+                $billing->amount = $package->price;
                 $billing->save();
             }
-
-
-        } catch(\Exception $e){
+        } catch (\Exception $e) {
             DB::rollBack();
-            info(["line___{$e->getLine()}",$e->getMessage()]);
+            info(["line___{$e->getLine()}", $e->getMessage()]);
             return false;
         }
 
 
 
 
-        if(data_get(self::subscriptionConditionsCheck(store_id:$store->id,package_id:$package->id) , 'disable_item_count') > 0){
-            $disable_item_count=data_get(Helpers::subscriptionConditionsCheck(store_id:$store->id,package_id:$package->id) , 'disable_item_count');
-            $store->item_section= 0;
+        if (data_get(self::subscriptionConditionsCheck(store_id: $store->id, package_id: $package->id), 'disable_item_count') > 0) {
+            $disable_item_count = data_get(Helpers::subscriptionConditionsCheck(store_id: $store->id, package_id: $package->id), 'disable_item_count');
+            $store->item_section = 0;
             $store->save();
 
-            Item::where('store_id',$store->id)->oldest()->take($disable_item_count)->update([
+            Item::where('store_id', $store->id)->oldest()->take($disable_item_count)->update([
                 'status' => 0
             ]);
         }
@@ -3864,18 +3919,16 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
 
         try {
 
-            if($type == 'renew'){
-                $push_notification_status=Helpers::getNotificationStatusData('store','store_subscription_renew','push_notification_status',$store->id);
-                $title=translate('subscription_renewed');
-                $des=translate('Your_subscription_successfully_renewed');
-                } elseif($type != 'renew'){
-                    $des=translate('Your_subscription_successfully_shifted');
-                    $title=translate('subscription_shifted');
-                    $push_notification_status=Helpers::getNotificationStatusData('store','store_subscription_shift','push_notification_status',$store->id);
-
-
+            if ($type == 'renew') {
+                $push_notification_status = Helpers::getNotificationStatusData('store', 'store_subscription_renew', 'push_notification_status', $store->id);
+                $title = translate('subscription_renewed');
+                $des = translate('Your_subscription_successfully_renewed');
+            } elseif ($type != 'renew') {
+                $des = translate('Your_subscription_successfully_shifted');
+                $title = translate('subscription_shifted');
+                $push_notification_status = Helpers::getNotificationStatusData('store', 'store_subscription_shift', 'push_notification_status', $store->id);
             }
-            if($push_notification_status  &&  $store?->vendor?->firebase_token){
+            if ($push_notification_status  &&  $store?->vendor?->firebase_token) {
                 $data = [
                     'title' => $title ?? '',
                     'description' => $des ?? '',
@@ -3894,19 +3947,19 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             }
 
 
-            if (config('mail.status') && Helpers::get_mail_status('subscription_renew_mail_status_store') == '1' && $type == 'renew' && Helpers::getNotificationStatusData('store','store_subscription_renew','mail_status',$store->id)) {
-                Mail::to($store->email)->send(new SubscriptionRenewOrShift($type,$store->name));
+            if (config('mail.status') && Helpers::get_mail_status('subscription_renew_mail_status_store') == '1' && $type == 'renew' && Helpers::getNotificationStatusData('store', 'store_subscription_renew', 'mail_status', $store->id)) {
+                Mail::to($store->email)->send(new SubscriptionRenewOrShift($type, $store->name));
             }
-            if (config('mail.status') && Helpers::get_mail_status('subscription_shift_mail_status_store') == '1' && $type != 'renew'  && Helpers::getNotificationStatusData('store','store_subscription_shift','mail_status',$store->id)) {
-                Mail::to($store->email)->send(new SubscriptionRenewOrShift($type,$store->name));
+            if (config('mail.status') && Helpers::get_mail_status('subscription_shift_mail_status_store') == '1' && $type != 'renew'  && Helpers::getNotificationStatusData('store', 'store_subscription_shift', 'mail_status', $store->id)) {
+                Mail::to($store->email)->send(new SubscriptionRenewOrShift($type, $store->name));
             }
-            if (config('mail.status') && Helpers::get_mail_status('subscription_successful_mail_status_store') == '1' && Helpers::getNotificationStatusData('store','store_subscription_success','mail_status',$store->id) ) {
-                $url=route('subscription_invoice',['id' => base64_encode($subscription_transaction->id)]);
-                Mail::to($store->email)->send(new SubscriptionSuccessful($store->name,$url));
+            if (config('mail.status') && Helpers::get_mail_status('subscription_successful_mail_status_store') == '1' && Helpers::getNotificationStatusData('store', 'store_subscription_success', 'mail_status', $store->id)) {
+                $url = route('subscription_invoice', ['id' => base64_encode($subscription_transaction->id)]);
+                Mail::to($store->email)->send(new SubscriptionSuccessful($store->name, $url));
             }
 
 
-            if( Helpers::getNotificationStatusData('store','store_subscription_success','push_notification_status',$store->id)  &&  $store?->vendor?->firebase_token){
+            if (Helpers::getNotificationStatusData('store', 'store_subscription_success', 'push_notification_status', $store->id)  &&  $store?->vendor?->firebase_token) {
                 $data = [
                     'title' => translate('subscription_successful'),
                     'description' => translate('You_are_successfully_subscribed'),
@@ -3923,29 +3976,28 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                     'updated_at' => now()
                 ]);
             }
-
-
         } catch (\Exception $ex) {
             info($ex->getMessage());
         }
 
         return  $subscription_transaction->id;
     }
-    public static function subscriptionPayment($store_id,$package_id,$payment_gateway,$url,$pending_bill=0,$type='payment',$payment_platform='web'){
-        $store = Store::where('id',$store_id)->first();
-        $package = SubscriptionPackage::where('id',$package_id)->first();
-        $type == null ? 'payment' :$type ;
+    public static function subscriptionPayment($store_id, $package_id, $payment_gateway, $url, $pending_bill = 0, $type = 'payment', $payment_platform = 'web')
+    {
+        $store = Store::where('id', $store_id)->first();
+        $package = SubscriptionPackage::where('id', $package_id)->first();
+        $type == null ? 'payment' : $type;
 
         $payer = new Payer(
-            $store->name ,
+            $store->name,
             $store->email,
             $store->phone,
             ''
         );
-        $store_logo= BusinessSetting::where(['key' => 'logo'])->first();
+        $store_logo = BusinessSetting::where(['key' => 'logo'])->first();
         $additional_data = [
-            'business_name' => BusinessSetting::where(['key'=>'business_name'])->first()?->value,
-            'business_logo' => \App\CentralLogics\Helpers::get_full_url('business',$store_logo?->value,$store_logo?->storage[0]?->value ?? 'public')
+            'business_name' => BusinessSetting::where(['key' => 'business_name'])->first()?->value,
+            'business_logo' => \App\CentralLogics\Helpers::get_full_url('business', $store_logo?->value, $store_logo?->storage[0]?->value ?? 'public')
         ];
         $payment_info = new PaymentInfo(
             success_hook: 'sub_success',
@@ -3954,84 +4006,83 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             payment_method: $payment_gateway,
             payment_platform: $payment_platform,
             payer_id: $store->id,
-            receiver_id:  $package->id,
+            receiver_id: $package->id,
             additional_data: $additional_data,
             payment_amount: $package->price + $pending_bill,
             external_redirect_link: $url,
-            attribute: 'store_subscription_'.$type,
+            attribute: 'store_subscription_' . $type,
             attribute_id: $package->id,
         );
-        $receiver_info = new Receiver('Admin','example.png');
+        $receiver_info = new Receiver('Admin', 'example.png');
         $redirect_link = Payment::generate_link($payer, $payment_info, $receiver_info);
 
         return $redirect_link;
     }
 
-    public Static function subscription_check()
+    public static function subscription_check()
     {
-        $subscription_business_model=  BusinessSetting::where(['key'=>'subscription_business_model'])->first()?->value ?? null;
-        if($subscription_business_model == null ){
+        $subscription_business_model =  BusinessSetting::where(['key' => 'subscription_business_model'])->first()?->value ?? null;
+        if ($subscription_business_model == null) {
             Helpers::insert_business_settings_key('subscription_business_model', '1');
-            $subscription_business_model=  BusinessSetting::where(['key'=>'subscription_business_model'])->first()?->value ?? null;
+            $subscription_business_model =  BusinessSetting::where(['key' => 'subscription_business_model'])->first()?->value ?? null;
         }
         return $subscription_business_model ?? 1;
-
     }
-    public Static function commission_check()
+    public static function commission_check()
     {
-        $commission_business_model=  BusinessSetting::where(['key'=>'commission_business_model'])->first()?->value ?? null;
-        if($commission_business_model == null ){
+        $commission_business_model =  BusinessSetting::where(['key' => 'commission_business_model'])->first()?->value ?? null;
+        if ($commission_business_model == null) {
             Helpers::insert_business_settings_key('commission_business_model', '1');
-            $commission_business_model=  BusinessSetting::where(['key'=>'commission_business_model'])->first()?->value ?? null;
+            $commission_business_model =  BusinessSetting::where(['key' => 'commission_business_model'])->first()?->value ?? null;
         }
         return $commission_business_model ?? 1;
     }
 
-    public static function calculateSubscriptionRefundAmount($store,$return_data=null){
+    public static function calculateSubscriptionRefundAmount($store, $return_data = null)
+    {
 
-        $store_subscription=$store->store_sub;
-        if($store_subscription && $store_subscription?->is_canceled === 0 && $store_subscription?->is_trial === 0 ){
-            $day_left=$store_subscription->expiry_date_parsed->format('Y-m-d');
+        $store_subscription = $store->store_sub;
+        if ($store_subscription && $store_subscription?->is_canceled === 0 && $store_subscription?->is_trial === 0) {
+            $day_left = $store_subscription->expiry_date_parsed->format('Y-m-d');
             if (Carbon::now()->diffInDays($day_left, false) > 0) {
-                $add_days= Carbon::now()->diffInDays($day_left, false);
-                $validity=$store_subscription?->validity;
-                $subscription_usage_max_time=BusinessSetting::where('key', 'subscription_usage_max_time')->first()?->value ?? 50 ;
-                $subscription_usage_max_time=  ($validity * $subscription_usage_max_time) /100 ;
+                $add_days = Carbon::now()->diffInDays($day_left, false);
+                $validity = $store_subscription?->validity;
+                $subscription_usage_max_time = BusinessSetting::where('key', 'subscription_usage_max_time')->first()?->value ?? 50;
+                $subscription_usage_max_time =  ($validity * $subscription_usage_max_time) / 100;
 
-                if(($validity - $add_days) < $subscription_usage_max_time ){
-                        $per_day= $store->store_sub_trans->price / $store->store_sub_trans->validity;
-                        $back_amount= $per_day *  $add_days;
+                if (($validity - $add_days) < $subscription_usage_max_time) {
+                    $per_day = $store->store_sub_trans->price / $store->store_sub_trans->validity;
+                    $back_amount = $per_day *  $add_days;
 
-                        if($return_data == true){
-                            return ['back_amount' => $back_amount, 'days'=> $add_days];
-                        }
-
-                        $vendorWallet = StoreWallet::firstOrNew(
-                            ['vendor_id' => $store->vendor_id]
-                        );
-                        $vendorWallet->total_earning = $vendorWallet->total_earning+$back_amount;
-                        $vendorWallet->save();
-
-                        $refund=new SubscriptionBillingAndRefundHistory();
-                        $refund->store_id= $store->id;
-                        $refund->subscription_id= $store_subscription->id;
-                        $refund->package_id= $store_subscription->package_id;
-                        $refund->transaction_type= 'refund';
-                        $refund->is_success= 1;
-                        $refund->amount= $back_amount;
-                        $refund->reference= 'validity_left_'.$add_days ;
-                        $refund->save();
-
+                    if ($return_data == true) {
+                        return ['back_amount' => $back_amount, 'days' => $add_days];
                     }
-            }
 
+                    $vendorWallet = StoreWallet::firstOrNew(
+                        ['vendor_id' => $store->vendor_id]
+                    );
+                    $vendorWallet->total_earning = $vendorWallet->total_earning + $back_amount;
+                    $vendorWallet->save();
+
+                    $refund = new SubscriptionBillingAndRefundHistory();
+                    $refund->store_id = $store->id;
+                    $refund->subscription_id = $store_subscription->id;
+                    $refund->package_id = $store_subscription->package_id;
+                    $refund->transaction_type = 'refund';
+                    $refund->is_success = 1;
+                    $refund->amount = $back_amount;
+                    $refund->reference = 'validity_left_' . $add_days;
+                    $refund->save();
+                }
+            }
         }
 
         return true;
     }
-    public static function increment_order_count($store){
-        $store_sub=$store->store_sub;
-        if ( $store->store_business_model == 'subscription' && isset($store_sub) && $store_sub->max_order != "unlimited") {
+    public static function increment_order_count($store)
+    {
+        $store_sub = $store->store_sub;
+        if ($store->store_business_model == 'subscription' && isset($store_sub) && $store_sub->max_order != "unlimited") {
             $store_sub->increment('max_order', 1);
         }
         return true;
@@ -4043,13 +4094,13 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             return [];
         }
 
-        $digital_payment=\App\CentralLogics\Helpers::get_business_settings('digital_payment');
+        $digital_payment = \App\CentralLogics\Helpers::get_business_settings('digital_payment');
 
-        if($digital_payment && $digital_payment['status']==0){
+        if ($digital_payment && $digital_payment['status'] == 0) {
             return [];
         }
 
-        $methods = DB::table('addon_settings')->where('is_active',1)->whereIn('settings_type', ['payment_config'])->whereIn('key_name', ['ssl_commerz','paypal','stripe','razor_pay','senang_pay','paytabs','paystack','paymob_accept','paytm','flutterwave','liqpay','bkash','mercadopago'])->get();
+        $methods = DB::table('addon_settings')->where('is_active', 1)->whereIn('settings_type', ['payment_config'])->whereIn('key_name', ['ssl_commerz', 'paypal', 'stripe', 'razor_pay', 'senang_pay', 'paytabs', 'paystack', 'paymob_accept', 'paytm', 'flutterwave', 'liqpay', 'bkash', 'mercadopago'])->get();
         $env = env('APP_ENV') == 'live' ? 'live' : 'test';
         $credentials = $env . '_values';
 
@@ -4069,49 +4120,56 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         return $data;
     }
 
-    public static function getNotificationStatusData($user_type,$key,$notification_type, $store_id= null){
-        $data= NotificationSetting::where('type',$user_type)->where('key',$key)->select($notification_type)->first();
-        $data= $data?->{$notification_type} === 'active' ? 1 : 0;
+    public static function getNotificationStatusData($user_type, $key, $notification_type, $store_id = null)
+    {
+        $data = NotificationSetting::where('type', $user_type)->where('key', $key)->select($notification_type)->first();
+        $data = $data?->{$notification_type} === 'active' ? 1 : 0;
 
-        if($store_id && $user_type == 'store' && $data === 1){
-            $data= self::getStoreNotificationStatusData(store_id:$store_id,key:$key ,notification_type: $notification_type);
-            $data= $data?->{$notification_type} === 'active' ? 1 : 0;
+        if ($store_id && $user_type == 'store' && $data === 1) {
+            $data = self::getStoreNotificationStatusData(store_id: $store_id, key: $key, notification_type: $notification_type);
+            $data = $data?->{$notification_type} === 'active' ? 1 : 0;
         }
 
         return $data;
     }
-        public static function getNotificationStatusDataAdmin($user_type,$key){
-            $data= NotificationSetting::where('type',$user_type)->where('key',$key)->select(['mail_status','push_notification_status','sms_status'])->first();
-            return $data ?? null ;
-        }
+    public static function getNotificationStatusDataAdmin($user_type, $key)
+    {
+        $data = NotificationSetting::where('type', $user_type)->where('key', $key)->select(['mail_status', 'push_notification_status', 'sms_status'])->first();
+        return $data ?? null;
+    }
 
-    public static function notificationDataSetup(){
+    public static function notificationDataSetup()
+    {
 
-        $data=self::getAdminNotificationSetupData();
-        $data = NotificationSetting::upsert($data,['key','type'],['title','mail_status','sms_status','push_notification_status','sub_title']);
+        $data = self::getAdminNotificationSetupData();
+        $data = NotificationSetting::upsert($data, ['key', 'type'], ['title', 'mail_status', 'sms_status', 'push_notification_status', 'sub_title']);
         return true;
     }
-    public static function storeNotificationDataSetup($id){
-        $data=self::getStoreNotificationSetupData($id);
-        $data = StoreNotificationSetting::upsert($data,['key','store_id'],['title','mail_status','sms_status','push_notification_status','sub_title']);
+    public static function storeNotificationDataSetup($id)
+    {
+        $data = self::getStoreNotificationSetupData($id);
+        $data = StoreNotificationSetting::upsert($data, ['key', 'store_id'], ['title', 'mail_status', 'sms_status', 'push_notification_status', 'sub_title']);
         return true;
     }
-    public static function updateAdminNotificationSetupDataSetup(){
+    public static function updateAdminNotificationSetupDataSetup()
+    {
         self::updateAdminNotificationSetupData();
-    return true;
+        return true;
     }
-    public static function getStoreNotificationStatusData($store_id,$key,$notification_type){
-        $data= StoreNotificationSetting::where('store_id',$store_id)->where('key',$key)->select($notification_type)->first();
-        if(!$data){
+    public static function getStoreNotificationStatusData($store_id, $key, $notification_type)
+    {
+        $data = StoreNotificationSetting::where('store_id', $store_id)->where('key', $key)->select($notification_type)->first();
+        if (!$data) {
             self::storeNotificationDataSetup($store_id);
-            $data= StoreNotificationSetting::where('store_id',$store_id)->where('key',$key)->select($notification_type)->first();
+            $data = StoreNotificationSetting::where('store_id', $store_id)->where('key', $key)->select($notification_type)->first();
         }
-        return $data ?? null ;
+        return $data ?? null;
     }
-    public static function add_fund_push_notification($user_id){
-        $customer_push_notification_status=self::getNotificationStatusData('customer','customer_add_fund_to_wallet','push_notification_status' );
+    public static function add_fund_push_notification($user_id)
+    {
+        $customer_push_notification_status = self::getNotificationStatusData('customer', 'customer_add_fund_to_wallet', 'push_notification_status');
 
-        $user= User::where('id',$user_id)->first();
+        $user = User::where('id', $user_id)->first();
         if ($customer_push_notification_status && $user?->cm_firebase_token) {
             $data = [
                 'title' => translate('messages.Fund_added'),
@@ -4119,7 +4177,7 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
                 'order_id' => '',
                 'image' => '',
                 'type' => 'add_fund',
-                'order_status' =>'',
+                'order_status' => '',
             ];
             self::send_push_notif_to_device($user?->cm_firebase_token, $data);
 
@@ -4134,7 +4192,8 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
     }
 
 
-    public static function getActivePaymentGateways(){
+    public static function getActivePaymentGateways()
+    {
 
         if (!Schema::hasTable('addon_settings')) {
             return [];
@@ -4147,62 +4206,59 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
         }
 
 
-        if($published_status == 1){
-            $methods = DB::table('addon_settings')->where('is_active',1)->where('settings_type', 'payment_config')->get();
+        if ($published_status == 1) {
+            $methods = DB::table('addon_settings')->where('is_active', 1)->where('settings_type', 'payment_config')->get();
             $env = env('APP_ENV') == 'live' ? 'live' : 'test';
             $credentials = $env . '_values';
-
-        } else{
-            $methods = DB::table('addon_settings')->where('is_active',1)->whereIn('settings_type', ['payment_config'])->whereIn('key_name', ['ssl_commerz','paypal','stripe','razor_pay','senang_pay','paytabs','paystack','paymob_accept','paytm','flutterwave','liqpay','bkash','mercadopago'])->get();
+        } else {
+            $methods = DB::table('addon_settings')->where('is_active', 1)->whereIn('settings_type', ['payment_config'])->whereIn('key_name', ['ssl_commerz', 'paypal', 'stripe', 'razor_pay', 'senang_pay', 'paytabs', 'paystack', 'paymob_accept', 'paytm', 'flutterwave', 'liqpay', 'bkash', 'mercadopago'])->get();
             $env = env('APP_ENV') == 'live' ? 'live' : 'test';
             $credentials = $env . '_values';
-
         }
 
-            $data = [];
-            foreach ($methods as $method) {
-                $credentialsData = json_decode($method->$credentials);
-                $additional_data = json_decode($method->additional_data);
-                if ($credentialsData?->status == 1) {
-                    $data[] = [
-                        'gateway' => $method->key_name,
-                        'gateway_title' => $additional_data?->gateway_title,
-                        'gateway_image' => $additional_data?->gateway_image,
-                        'gateway_image_full_url' => Helpers::get_full_url('payment_modules/gateway_image',$additional_data?->gateway_image,$additional_data?->storage ?? 'public')
-                    ];
-                }
+        $data = [];
+        foreach ($methods as $method) {
+            $credentialsData = json_decode($method->$credentials);
+            $additional_data = json_decode($method->additional_data);
+            if ($credentialsData?->status == 1) {
+                $data[] = [
+                    'gateway' => $method->key_name,
+                    'gateway_title' => $additional_data?->gateway_title,
+                    'gateway_image' => $additional_data?->gateway_image,
+                    'gateway_image_full_url' => Helpers::get_full_url('payment_modules/gateway_image', $additional_data?->gateway_image, $additional_data?->storage ?? 'public')
+                ];
             }
-            return $data;
-
+        }
+        return $data;
     }
 
 
 
-    public static function checkCurrency($data , $type= null){
+    public static function checkCurrency($data, $type = null)
+    {
 
-        $digital_payment=self::get_business_settings('digital_payment');
+        $digital_payment = self::get_business_settings('digital_payment');
 
-        if($digital_payment && $digital_payment['status']==1){
-            if($type === null){
-                if(is_array(self::getActivePaymentGateways())){
-                    foreach(self::getActivePaymentGateways() as $payment_gateway){
+        if ($digital_payment && $digital_payment['status'] == 1) {
+            if ($type === null) {
+                if (is_array(self::getActivePaymentGateways())) {
+                    foreach (self::getActivePaymentGateways() as $payment_gateway) {
 
-                        if(!empty(self::getPaymentGatewaySupportedCurrencies($payment_gateway['gateway'])) && !array_key_exists($data,self::getPaymentGatewaySupportedCurrencies($payment_gateway['gateway']))    ){
+                        if (!empty(self::getPaymentGatewaySupportedCurrencies($payment_gateway['gateway'])) && !array_key_exists($data, self::getPaymentGatewaySupportedCurrencies($payment_gateway['gateway']))) {
                             return  $payment_gateway['gateway'];
                         }
                     }
                 }
-            }
-            elseif($type == 'payment_gateway'){
-                $currency=  BusinessSetting::where('key','currency')->first()?->value;
-                    if(!empty(self::getPaymentGatewaySupportedCurrencies($data)) && !array_key_exists($currency,self::getPaymentGatewaySupportedCurrencies($data))    ){
-                        return  $data;
-                    }
+            } elseif ($type == 'payment_gateway') {
+                $currency =  BusinessSetting::where('key', 'currency')->first()?->value;
+                if (!empty(self::getPaymentGatewaySupportedCurrencies($data)) && !array_key_exists($currency, self::getPaymentGatewaySupportedCurrencies($data))) {
+                    return  $data;
+                }
             }
         }
 
         return true;
-        }
+    }
 
 
     public static function updateStorageTable($dataType, $dataId, $image)
@@ -4218,21 +4274,22 @@ $item['order_components'] = \App\Models\Order::where('id',request('order_id'))->
             'updated_at' => now(),
         ]);
     }
-    public static function getNextOpeningTime($schedule) {
-        $currentTime =now()->format('H:i');
+    public static function getNextOpeningTime($schedule)
+    {
+        $currentTime = now()->format('H:i');
         if ($schedule) {
-            foreach($schedule as $entry) {
+            foreach ($schedule as $entry) {
                 if ($entry['day'] == now()->format('w')) {
-                        if ($currentTime >= $entry['opening_time'] && $currentTime <= $entry['closing_time']) {
-                            return $entry['opening_time'];
-                        } elseif($currentTime < $entry['opening_time']){
-                            return $entry['opening_time'];
-                        }
+                    if ($currentTime >= $entry['opening_time'] && $currentTime <= $entry['closing_time']) {
+                        return $entry['opening_time'];
+                    } elseif ($currentTime < $entry['opening_time']) {
+                        return $entry['opening_time'];
+                    }
                 }
             }
         }
-            return 'closed';
-        }
+        return 'closed';
+    }
 
     public static function checkExternalConfiguration($externalBaseUrl, $externalTokem, $martToken)
     {
