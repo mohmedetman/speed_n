@@ -1549,328 +1549,328 @@ class Helpers
         }
     }
 
-public static function send_order_notification($order)
-{
-    $push_notification_status = self::getNotificationStatusData('store', 'store_order_notification', 'push_notification_status', $order?->store?->id);
-
-    try {
-        if ((in_array($order->payment_method, ['cash_on_delivery', 'offline_payment']) && $order->order_status == 'pending') || (!in_array($order->payment_method, ['cash_on_delivery', 'offline_payment']) && $order->order_status == 'confirmed')) {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => translate('messages.new_order_push_description'),
-                'order_id' => $order->id,
-                'image' => '',
-                'module_id' => $order->module_id,
-                'order_type' => $order->order_type,
-                'zone_id' => $order->zone_id,
-                'type' => 'new_order',
-            ];
-            self::send_push_notif_to_topic($data, 'admin_message', 'order_request', url('/') . '/admin/order/list/all');
-        }
-
-        $status = ($order->order_status == 'delivered' && $order->delivery_man) ? 'delivery_boy_delivered' : $order->order_status;
-
-        if ($order->is_guest) {
-            $customer_details = json_decode($order['delivery_address'], true);
-            $value = self::order_status_update_message($status, $order->module->module_type, 'en');
-            $value = self::text_variable_data_format(value: $value, store_name: $order->store?->name, order_id: $order->id, user_name: "{$customer_details['contact_person_name']}", delivery_man_name: "{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
-            $user_fcm = $order->guest->fcm_token;
-        } else {
-            $value = self::order_status_update_message($status, $order->module->module_type, $order->customer ? $order->customer->current_language_key : 'en');
-            $value = self::text_variable_data_format(value: $value, store_name: $order->store?->name, order_id: $order->id, user_name: "{$order->customer?->f_name} {$order->customer?->l_name}", delivery_man_name: "{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
-            $user_fcm = $order?->customer?->cm_firebase_token;
-        }
-
-        if (self::getNotificationStatusData('customer', 'customer_order_notification', 'push_notification_status') && $value && $user_fcm) {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => $value,
-                'order_id' => $order->id,
-                'image' => '',
-                'type' => 'order_status',
-            ];
-            self::send_push_notif_to_device($user_fcm, $data);
-            DB::table('user_notifications')->insert([
-                'data' => json_encode($data),
-                'user_id' => $order->user_id,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-        }
-
-        if ($status == 'picked_up') {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => $value,
-                'order_id' => $order->id,
-                'image' => '',
-                'type' => 'order_status',
-            ];
-            if ($order->store && $order->store->vendor && $push_notification_status) {
-                self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                DB::table('user_notifications')->insert([
-                    'data' => json_encode($data),
-                    'vendor_id' => $order->store->vendor_id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
-        }
-
-        if ($order->order_type == 'delivery' && !$order->scheduled && $status == 'pending' && $order->payment_method == 'cash_on_delivery' && config('order_confirmation_model') == 'deliveryman') {
-            if ($order->store->sub_self_delivery && $push_notification_status) {
-                $data = [
-                    'title' => translate('Order_Notification'),
-                    'description' => translate('messages.new_order_push_description'),
-                    'order_id' => $order->id,
-                    'module_id' => $order->module_id,
-                    'order_type' => $order->order_type,
-                    'image' => '',
-                    'type' => 'new_order',
-                ];
-                if ($order->store && $order->store->vendor && $push_notification_status) {
-                    self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                    $web_push_link = url('/') . '/store-panel/order/list/all';
-                    self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
-                    DB::table('user_notifications')->insert([
-                        'data' => json_encode($data),
-                        'vendor_id' => $order->store->vendor_id,
-                        'order_type' => $order->order_type,
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ]);
-                }
-            } else {
-                $data = [
-                    'title' => translate('Order_Notification'),
-                    'description' => translate('messages.new_order_push_description'),
-                    'order_id' => $order->id,
-                    'module_id' => $order->module_id,
-                    'order_type' => $order->order_type,
-                    'zone_id' => $order->zone_id,
-                    'image' => '',
-                ];
-                if ($order->zone) {
-                    if ($order->dm_vehicle_id) {
-                        $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                        self::send_push_notif_to_topic($data, $topic, 'order_request');
-                    }
-                    self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-                    
-                    // Get all unique delivery men IDs who have this zone
-                    $delivery_men_ids = DB::table('delivery_man_zones')
-                        ->where('zone_id', $order->zone_id)
-                        // ->where('is_active', true)
-                        ->distinct()
-                        ->pluck('delivery_man_id')
-                        ->toArray();
-                    
-                    // Get all active delivery men with those IDs and their fcm tokens
-                    $delivery_men = \App\Models\DeliveryMan::active()
-                        ->whereIn('id', $delivery_men_ids)
-                        ->whereNotNull('fcm_token')
-                        ->get();
-                    
-                    foreach ($delivery_men as $dm) {
-                        self::send_push_notif_to_device($dm->fcm_token, $data);
-                    }
-                }
-            }
-        }
-
-        if ($order->order_type == 'parcel' && in_array($order->order_status, ['pending', 'confirmed'])) {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => translate('messages.new_order_push_description'),
-                'order_id' => $order->id,
-                'module_id' => $order->module_id,
-                'order_type' => 'parcel_order',
-                'zone_id' => $order->zone_id,
-                'image' => '',
-            ];
-            if ($order->zone) {
-                if ($order->dm_vehicle_id) {
-                    $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                    self::send_push_notif_to_topic($data, $topic, 'order_request');
-                }
-                self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-                
-                // Get all unique delivery men IDs who have this zone
-                $delivery_men_ids = DB::table('delivery_man_zones')
-                    ->where('zone_id', $order->zone_id)
-                    // ->where('is_active', true)
-                    ->distinct()
-                    ->pluck('delivery_man_id')
-                    ->toArray();
-                
-                // Get all active delivery men with those IDs and their fcm tokens
-                $delivery_men = \App\Models\DeliveryMan::active()
-                    ->whereIn('id', $delivery_men_ids)
-                    ->whereNotNull('fcm_token')
-                    ->get();
-                
-                foreach ($delivery_men as $dm) {
-                    self::send_push_notif_to_device($dm->fcm_token, $data);
-                }
-            }
-        }
-
-        if ($order->order_type == 'delivery' && !$order->scheduled && $order->order_status == 'pending' && $order->payment_method == 'cash_on_delivery' && config('order_confirmation_model') == 'store') {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => translate('messages.new_order_push_description'),
-                'order_id' => $order->id,
-                'module_id' => $order->module_id,
-                'order_type' => $order->order_type,
-                'zone_id' => $order->zone_id,
-                'image' => '',
-                'type' => 'new_order',
-            ];
-            if ($order->store && $order->store->vendor && $push_notification_status) {
-                self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                $web_push_link = url('/') . '/store-panel/order/list/all';
-                self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
-                DB::table('user_notifications')->insert([
-                    'data' => json_encode($data),
-                    'vendor_id' => $order->store->vendor_id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
-        }
-
-        if (!$order->scheduled && (($order->order_type == 'take_away' && $order->order_status == 'pending') || ($order->payment_method != 'cash_on_delivery' && $order->order_status == 'confirmed'))) {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => translate('messages.new_order_push_description'),
-                'order_id' => $order->id,
-                'image' => '',
-                'type' => 'new_order',
-            ];
-            if ($order->store && $order->store->vendor && $push_notification_status) {
-                self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                $web_push_link = url('/') . '/store-panel/order/list/all';
-                self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
-                DB::table('user_notifications')->insert([
-                    'data' => json_encode($data),
-                    'vendor_id' => $order->store->vendor_id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
-        }
-
-        if ($order->order_status == 'confirmed' && $order->order_type != 'take_away' && config('order_confirmation_model') == 'deliveryman' && $order->payment_method == 'cash_on_delivery') {
-            if ($order->store->sub_self_delivery) {
-                $data = [
-                    'title' => translate('Order_Notification'),
-                    'description' => translate('messages.new_order_push_description'),
-                    'order_id' => $order->id,
-                    'module_id' => $order->module_id,
-                    'order_type' => $order->order_type,
-                    'zone_id' => $order->zone_id,
-                    'image' => '',
-                ];
-                self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'new_order', null);
-            } else {
-                $data = [
-                    'title' => translate('Order_Notification'),
-                    'description' => translate('messages.new_order_push_description'),
-                    'order_id' => $order->id,
-                    'module_id' => $order->module_id,
-                    'order_type' => $order->order_type,
-                    'image' => '',
-                    'type' => 'new_order',
-                ];
-                if ($order->store && $order->store->vendor && $push_notification_status) {
-                    self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
-                    $web_push_link = url('/') . '/store-panel/order/list/all';
-                    self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
-                    DB::table('user_notifications')->insert([
-                        'data' => json_encode($data),
-                        'vendor_id' => $order->store->vendor_id,
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ]);
-                }
-            }
-        }
-
-        if ($order->order_type == 'delivery' && !$order->scheduled && $order->order_status == 'confirmed' && ($order->payment_method != 'cash_on_delivery' || config('order_confirmation_model') == 'store')) {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => translate('messages.new_order_push_description'),
-                'order_id' => $order->id,
-                'module_id' => $order->module_id,
-                'order_type' => $order->order_type,
-                'zone_id' => $order->zone_id,
-                'image' => '',
-            ];
-            if ($order->store->sub_self_delivery) {
-                self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'order_request', null);
-            } else {
-                if ($order->zone) {
-                    if ($order->dm_vehicle_id) {
-                        $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                        self::send_push_notif_to_topic($data, $topic, 'order_request');
-                    }
-                    self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-                    
-                    // Get all unique delivery men IDs who have this zone
-                    $delivery_men_ids = DB::table('delivery_man_zones')
-                        ->where('zone_id', $order->zone_id)
-                        // ->where('is_active', true)
-                        ->distinct()
-                        ->pluck('delivery_man_id')
-                        ->toArray();
-                    
-                    // Get all active delivery men with those IDs and their fcm tokens
-                    $delivery_men = \App\Models\DeliveryMan::active()
-                        ->whereIn('id', $delivery_men_ids)
-                        ->whereNotNull('fcm_token')
-                        ->get();
-                    
-                    foreach ($delivery_men as $dm) {
-                        self::send_push_notif_to_device($dm->fcm_token, $data);
-                    }
-                }
-            }
-        }
-
-        if (in_array($order->order_status, ['processing', 'handover']) && $order->delivery_man && self::getNotificationStatusData('deliveryman', 'deliveryman_order_notification', 'push_notification_status')) {
-            $data = [
-                'title' => translate('Order_Notification'),
-                'description' => $order->order_status == 'processing' ? translate('messages.Proceed_for_cooking') : translate('messages.ready_for_delivery'),
-                'order_id' => $order->id,
-                'image' => '',
-                'type' => 'order_status'
-            ];
-            self::send_push_notif_to_device($order->delivery_man->fcm_token, $data);
-            DB::table('user_notifications')->insert([
-                'data' => json_encode($data),
-                'delivery_man_id' => $order->delivery_man->id,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-        }
+    public static function send_order_notification($order)
+    {
+        $push_notification_status = self::getNotificationStatusData('store', 'store_order_notification', 'push_notification_status', $order?->store?->id);
 
         try {
-            if ($order->order_status == 'confirmed' && $order->payment_method != 'cash_on_delivery' && config('mail.status') && Helpers::get_mail_status('place_order_mail_status_user') == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer', 'customer_order_notification', 'mail_status')) {
-                Mail::to($order->customer->email)->send(new PlaceOrder($order->id));
+            if ((in_array($order->payment_method, ['cash_on_delivery', 'offline_payment']) && $order->order_status == 'pending') || (!in_array($order->payment_method, ['cash_on_delivery', 'offline_payment']) && $order->order_status == 'confirmed')) {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => translate('messages.new_order_push_description'),
+                    'order_id' => $order->id,
+                    'image' => '',
+                    'module_id' => $order->module_id,
+                    'order_type' => $order->order_type,
+                    'zone_id' => $order->zone_id,
+                    'type' => 'new_order',
+                ];
+                self::send_push_notif_to_topic($data, 'admin_message', 'order_request', url('/') . '/admin/order/list/all');
             }
-            $order_verification_mail_status = Helpers::get_mail_status('order_verification_mail_status_user');
-            if ($order->order_status == 'pending' && config('order_delivery_verification') == 1 && config('mail.status') && $order_verification_mail_status == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer', 'customer_delivery_verification', 'mail_status')) {
-                Mail::to($order->customer->email)->send(new OrderVerificationMail($order->otp, $order->customer->f_name));
+
+            $status = ($order->order_status == 'delivered' && $order->delivery_man) ? 'delivery_boy_delivered' : $order->order_status;
+
+            if ($order->is_guest) {
+                $customer_details = json_decode($order['delivery_address'], true);
+                $value = self::order_status_update_message($status, $order->module->module_type, 'en');
+                $value = self::text_variable_data_format(value: $value, store_name: $order->store?->name, order_id: $order->id, user_name: "{$customer_details['contact_person_name']}", delivery_man_name: "{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
+                $user_fcm = $order->guest->fcm_token;
+            } else {
+                $value = self::order_status_update_message($status, $order->module->module_type, $order->customer ? $order->customer->current_language_key : 'en');
+                $value = self::text_variable_data_format(value: $value, store_name: $order->store?->name, order_id: $order->id, user_name: "{$order->customer?->f_name} {$order->customer?->l_name}", delivery_man_name: "{$order->delivery_man?->f_name} {$order->delivery_man?->l_name}");
+                $user_fcm = $order?->customer?->cm_firebase_token;
             }
-        } catch (\Exception $ex) {
-            info($ex->getMessage());
+
+            if (self::getNotificationStatusData('customer', 'customer_order_notification', 'push_notification_status') && $value && $user_fcm) {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => $value,
+                    'order_id' => $order->id,
+                    'image' => '',
+                    'type' => 'order_status',
+                ];
+                self::send_push_notif_to_device($user_fcm, $data);
+                DB::table('user_notifications')->insert([
+                    'data' => json_encode($data),
+                    'user_id' => $order->user_id,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            if ($status == 'picked_up') {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => $value,
+                    'order_id' => $order->id,
+                    'image' => '',
+                    'type' => 'order_status',
+                ];
+                if ($order->store && $order->store->vendor && $push_notification_status) {
+                    self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
+                    DB::table('user_notifications')->insert([
+                        'data' => json_encode($data),
+                        'vendor_id' => $order->store->vendor_id,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+
+            if ($order->order_type == 'delivery' && !$order->scheduled && $status == 'pending' && $order->payment_method == 'cash_on_delivery' && config('order_confirmation_model') == 'deliveryman') {
+                if ($order->store->sub_self_delivery && $push_notification_status) {
+                    $data = [
+                        'title' => translate('Order_Notification'),
+                        'description' => translate('messages.new_order_push_description'),
+                        'order_id' => $order->id,
+                        'module_id' => $order->module_id,
+                        'order_type' => $order->order_type,
+                        'image' => '',
+                        'type' => 'new_order',
+                    ];
+                    if ($order->store && $order->store->vendor && $push_notification_status) {
+                        self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
+                        $web_push_link = url('/') . '/store-panel/order/list/all';
+                        self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
+                        DB::table('user_notifications')->insert([
+                            'data' => json_encode($data),
+                            'vendor_id' => $order->store->vendor_id,
+                            'order_type' => $order->order_type,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+                } else {
+                    $data = [
+                        'title' => translate('Order_Notification'),
+                        'description' => translate('messages.new_order_push_description'),
+                        'order_id' => $order->id,
+                        'module_id' => $order->module_id,
+                        'order_type' => $order->order_type,
+                        'zone_id' => $order->zone_id,
+                        'image' => '',
+                    ];
+                    if ($order->zone) {
+                        if ($order->dm_vehicle_id) {
+                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
+                            self::send_push_notif_to_topic($data, $topic, 'order_request');
+                        }
+                        self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
+
+                        // Get all unique delivery men IDs who have this zone
+                        $delivery_men_ids = DB::table('delivery_man_zones')
+                            ->where('zone_id', $order->zone_id)
+                            ->where('is_active', true)
+                            ->distinct()
+                            ->pluck('delivery_man_id')
+                            ->toArray();
+
+                        // Get all active delivery men with those IDs and their fcm tokens
+                        $delivery_men = \App\Models\DeliveryMan::active()
+                            ->whereIn('id', $delivery_men_ids)
+                            ->whereNotNull('fcm_token')
+                            ->get();
+
+                        foreach ($delivery_men as $dm) {
+                            self::send_push_notif_to_device($dm->fcm_token, $data);
+                        }
+                    }
+                }
+            }
+
+            if ($order->order_type == 'parcel' && in_array($order->order_status, ['pending', 'confirmed'])) {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => translate('messages.new_order_push_description'),
+                    'order_id' => $order->id,
+                    'module_id' => $order->module_id,
+                    'order_type' => 'parcel_order',
+                    'zone_id' => $order->zone_id,
+                    'image' => '',
+                ];
+                if ($order->zone) {
+                    if ($order->dm_vehicle_id) {
+                        $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
+                        self::send_push_notif_to_topic($data, $topic, 'order_request');
+                    }
+                    self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
+
+                    // Get all unique delivery men IDs who have this zone
+                    $delivery_men_ids = DB::table('delivery_man_zones')
+                        ->where('zone_id', $order->zone_id)
+                        ->where('is_active', true)
+                        ->distinct()
+                        ->pluck('delivery_man_id')
+                        ->toArray();
+
+                    // Get all active delivery men with those IDs and their fcm tokens
+                    $delivery_men = \App\Models\DeliveryMan::active()
+                        ->whereIn('id', $delivery_men_ids)
+                        ->whereNotNull('fcm_token')
+                        ->get();
+
+                    foreach ($delivery_men as $dm) {
+                        self::send_push_notif_to_device($dm->fcm_token, $data);
+                    }
+                }
+            }
+
+            if ($order->order_type == 'delivery' && !$order->scheduled && $order->order_status == 'pending' && $order->payment_method == 'cash_on_delivery' && config('order_confirmation_model') == 'store') {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => translate('messages.new_order_push_description'),
+                    'order_id' => $order->id,
+                    'module_id' => $order->module_id,
+                    'order_type' => $order->order_type,
+                    'zone_id' => $order->zone_id,
+                    'image' => '',
+                    'type' => 'new_order',
+                ];
+                if ($order->store && $order->store->vendor && $push_notification_status) {
+                    self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
+                    $web_push_link = url('/') . '/store-panel/order/list/all';
+                    self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
+                    DB::table('user_notifications')->insert([
+                        'data' => json_encode($data),
+                        'vendor_id' => $order->store->vendor_id,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+
+            if (!$order->scheduled && (($order->order_type == 'take_away' && $order->order_status == 'pending') || ($order->payment_method != 'cash_on_delivery' && $order->order_status == 'confirmed'))) {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => translate('messages.new_order_push_description'),
+                    'order_id' => $order->id,
+                    'image' => '',
+                    'type' => 'new_order',
+                ];
+                if ($order->store && $order->store->vendor && $push_notification_status) {
+                    self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
+                    $web_push_link = url('/') . '/store-panel/order/list/all';
+                    self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
+                    DB::table('user_notifications')->insert([
+                        'data' => json_encode($data),
+                        'vendor_id' => $order->store->vendor_id,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+
+            if ($order->order_status == 'confirmed' && $order->order_type != 'take_away' && config('order_confirmation_model') == 'deliveryman' && $order->payment_method == 'cash_on_delivery') {
+                if ($order->store->sub_self_delivery) {
+                    $data = [
+                        'title' => translate('Order_Notification'),
+                        'description' => translate('messages.new_order_push_description'),
+                        'order_id' => $order->id,
+                        'module_id' => $order->module_id,
+                        'order_type' => $order->order_type,
+                        'zone_id' => $order->zone_id,
+                        'image' => '',
+                    ];
+                    self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'new_order', null);
+                } else {
+                    $data = [
+                        'title' => translate('Order_Notification'),
+                        'description' => translate('messages.new_order_push_description'),
+                        'order_id' => $order->id,
+                        'module_id' => $order->module_id,
+                        'order_type' => $order->order_type,
+                        'image' => '',
+                        'type' => 'new_order',
+                    ];
+                    if ($order->store && $order->store->vendor && $push_notification_status) {
+                        self::send_push_notif_to_device($order->store->vendor->firebase_token, $data);
+                        $web_push_link = url('/') . '/store-panel/order/list/all';
+                        self::send_push_notif_to_topic($data, "store_panel_{$order->store_id}_message", 'new_order', $web_push_link);
+                        DB::table('user_notifications')->insert([
+                            'data' => json_encode($data),
+                            'vendor_id' => $order->store->vendor_id,
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                    }
+                }
+            }
+
+            if ($order->order_type == 'delivery' && !$order->scheduled && $order->order_status == 'confirmed' && ($order->payment_method != 'cash_on_delivery' || config('order_confirmation_model') == 'store')) {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => translate('messages.new_order_push_description'),
+                    'order_id' => $order->id,
+                    'module_id' => $order->module_id,
+                    'order_type' => $order->order_type,
+                    'zone_id' => $order->zone_id,
+                    'image' => '',
+                ];
+                if ($order->store->sub_self_delivery) {
+                    self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'order_request', null);
+                } else {
+                    if ($order->zone) {
+                        if ($order->dm_vehicle_id) {
+                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
+                            self::send_push_notif_to_topic($data, $topic, 'order_request');
+                        }
+                        self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
+
+                        // Get all unique delivery men IDs who have this zone
+                        $delivery_men_ids = DB::table('delivery_man_zones')
+                            ->where('zone_id', $order->zone_id)
+                            ->where('is_active', true)
+                            ->distinct()
+                            ->pluck('delivery_man_id')
+                            ->toArray();
+
+                        // Get all active delivery men with those IDs and their fcm tokens
+                        $delivery_men = \App\Models\DeliveryMan::active()
+                            ->whereIn('id', $delivery_men_ids)
+                            ->whereNotNull('fcm_token')
+                            ->get();
+
+                        foreach ($delivery_men as $dm) {
+                            self::send_push_notif_to_device($dm->fcm_token, $data);
+                        }
+                    }
+                }
+            }
+
+            if (in_array($order->order_status, ['processing', 'handover']) && $order->delivery_man && self::getNotificationStatusData('deliveryman', 'deliveryman_order_notification', 'push_notification_status')) {
+                $data = [
+                    'title' => translate('Order_Notification'),
+                    'description' => $order->order_status == 'processing' ? translate('messages.Proceed_for_cooking') : translate('messages.ready_for_delivery'),
+                    'order_id' => $order->id,
+                    'image' => '',
+                    'type' => 'order_status'
+                ];
+                self::send_push_notif_to_device($order->delivery_man->fcm_token, $data);
+                DB::table('user_notifications')->insert([
+                    'data' => json_encode($data),
+                    'delivery_man_id' => $order->delivery_man->id,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            try {
+                if ($order->order_status == 'confirmed' && $order->payment_method != 'cash_on_delivery' && config('mail.status') && Helpers::get_mail_status('place_order_mail_status_user') == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer', 'customer_order_notification', 'mail_status')) {
+                    Mail::to($order->customer->email)->send(new PlaceOrder($order->id));
+                }
+                $order_verification_mail_status = Helpers::get_mail_status('order_verification_mail_status_user');
+                if ($order->order_status == 'pending' && config('order_delivery_verification') == 1 && config('mail.status') && $order_verification_mail_status == '1' && $order->is_guest == 0 && Helpers::getNotificationStatusData('customer', 'customer_delivery_verification', 'mail_status')) {
+                    Mail::to($order->customer->email)->send(new OrderVerificationMail($order->otp, $order->customer->f_name));
+                }
+            } catch (\Exception $ex) {
+                info($ex->getMessage());
+            }
+            return true;
+        } catch (\Exception $e) {
+            info($e->getMessage());
         }
-        return true;
-    } catch (\Exception $e) {
-        info($e->getMessage());
+        return false;
     }
-    return false;
-}
     public static function day_part()
     {
         $part = "";
