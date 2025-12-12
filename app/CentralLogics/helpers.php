@@ -1657,16 +1657,34 @@ class Helpers
                         'image' => '',
                     ];
                     if ($order->zone) {
-                        if ($order->dm_vehicle_id) {
+                        // Get delivery men whose primary zone is the order's zone
+                        $primary_zone_delivery_men = \App\Models\DeliveryMan::active()
+                            ->where('zone_id', $order->zone_id);
 
-                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                            self::send_push_notif_to_topic($data, $topic, 'order_request');
+                        // Filter by vehicle if specified
+                        if ($order->dm_vehicle_id) {
+                            $primary_zone_delivery_men->whereHas('vehicle', function ($q) use ($order) {
+                                $q->where('id', $order->dm_vehicle_id);
+                            });
                         }
-                        self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-                        $multi_zone_delivery_men = \App\Models\DeliveryMan::active()->where('zone_id', '!=', $order->zone_id)
+
+                        $primary_zone_delivery_men = $primary_zone_delivery_men->get();
+
+                        // Send to primary zone delivery men
+                        foreach ($primary_zone_delivery_men as $dm) {
+                            if ($dm->fcm_token) {
+                                self::send_push_notif_to_device($dm->fcm_token, $data);
+                            }
+                        }
+
+                        // Get delivery men who have this zone as a secondary zone
+                        $multi_zone_delivery_men = \App\Models\DeliveryMan::active()
+                            ->where('zone_id', '!=', $order->zone_id)
                             ->whereHas('zones', function ($q) use ($order) {
                                 $q->where('zone_id', $order->zone_id);
                             })->get();
+
+                        // Send to multi-zone delivery men
                         foreach ($multi_zone_delivery_men as $dm) {
                             if ($dm->fcm_token) {
                                 self::send_push_notif_to_device($dm->fcm_token, $data);
@@ -1688,16 +1706,34 @@ class Helpers
                     'image' => '',
                 ];
                 if ($order->zone) {
-                    if ($order->dm_vehicle_id) {
+                    // Get delivery men whose primary zone is the order's zone
+                    $primary_zone_delivery_men = \App\Models\DeliveryMan::active()
+                        ->where('zone_id', $order->zone_id);
 
-                        $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                        self::send_push_notif_to_topic($data, $topic, 'order_request');
+                    // Filter by vehicle if specified
+                    if ($order->dm_vehicle_id) {
+                        $primary_zone_delivery_men->whereHas('vehicle', function ($q) use ($order) {
+                            $q->where('id', $order->dm_vehicle_id);
+                        });
                     }
-                    self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-                    $multi_zone_delivery_men = \App\Models\DeliveryMan::active()->where('zone_id', '!=', $order->zone_id)
+
+                    $primary_zone_delivery_men = $primary_zone_delivery_men->get();
+
+                    // Send to primary zone delivery men
+                    foreach ($primary_zone_delivery_men as $dm) {
+                        if ($dm->fcm_token) {
+                            self::send_push_notif_to_device($dm->fcm_token, $data);
+                        }
+                    }
+
+                    // Get delivery men who have this zone as a secondary zone
+                    $multi_zone_delivery_men = \App\Models\DeliveryMan::active()
+                        ->where('zone_id', '!=', $order->zone_id)
                         ->whereHas('zones', function ($q) use ($order) {
                             $q->where('zone_id', $order->zone_id);
                         })->get();
+
+                    // Send to multi-zone delivery men
                     foreach ($multi_zone_delivery_men as $dm) {
                         if ($dm->fcm_token) {
                             self::send_push_notif_to_device($dm->fcm_token, $data);
@@ -1804,16 +1840,34 @@ class Helpers
                     self::send_push_notif_to_topic($data, "restaurant_dm_" . $order->store_id, 'order_request', null);
                 } else {
                     if ($order->zone) {
-                        if ($order->dm_vehicle_id) {
+                        // Get delivery men whose primary zone is the order's zone
+                        $primary_zone_delivery_men = \App\Models\DeliveryMan::active()
+                            ->where('zone_id', $order->zone_id);
 
-                            $topic = 'delivery_man_' . $order->zone_id . '_' . $order->dm_vehicle_id;
-                            self::send_push_notif_to_topic($data, $topic, 'order_request');
+                        // Filter by vehicle if specified
+                        if ($order->dm_vehicle_id) {
+                            $primary_zone_delivery_men->whereHas('vehicle', function ($q) use ($order) {
+                                $q->where('id', $order->dm_vehicle_id);
+                            });
                         }
-                        self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
-                        $multi_zone_delivery_men = \App\Models\DeliveryMan::active()->where('zone_id', '!=', $order->zone_id)
+
+                        $primary_zone_delivery_men = $primary_zone_delivery_men->get();
+
+                        // Send to primary zone delivery men
+                        foreach ($primary_zone_delivery_men as $dm) {
+                            if ($dm->fcm_token) {
+                                self::send_push_notif_to_device($dm->fcm_token, $data);
+                            }
+                        }
+
+                        // Get delivery men who have this zone as a secondary zone
+                        $multi_zone_delivery_men = \App\Models\DeliveryMan::active()
+                            ->where('zone_id', '!=', $order->zone_id)
                             ->whereHas('zones', function ($q) use ($order) {
                                 $q->where('zone_id', $order->zone_id);
                             })->get();
+
+                        // Send to multi-zone delivery men
                         foreach ($multi_zone_delivery_men as $dm) {
                             if ($dm->fcm_token) {
                                 self::send_push_notif_to_device($dm->fcm_token, $data);
