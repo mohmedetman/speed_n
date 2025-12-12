@@ -1653,6 +1653,7 @@ class Helpers
                         'order_id' => $order->id,
                         'module_id' => $order->module_id,
                         'order_type' => $order->order_type,
+                        'zone_id' => $order->zone_id,
                         'image' => '',
                     ];
                     if ($order->zone) {
@@ -1683,6 +1684,7 @@ class Helpers
                     'order_id' => $order->id,
                     'module_id' => $order->module_id,
                     'order_type' => 'parcel_order',
+                    'zone_id' => $order->zone_id,
                     'image' => '',
                 ];
                 if ($order->zone) {
@@ -1712,6 +1714,7 @@ class Helpers
                     'order_id' => $order->id,
                     'module_id' => $order->module_id,
                     'order_type' => $order->order_type,
+                    'zone_id' => $order->zone_id,
                     'image' => '',
                     'type' => 'new_order',
                 ];
@@ -1758,6 +1761,7 @@ class Helpers
                         'order_id' => $order->id,
                         'module_id' => $order->module_id,
                         'order_type' => $order->order_type,
+                        'zone_id' => $order->zone_id,
                         'image' => '',
                     ];
 
@@ -1793,6 +1797,7 @@ class Helpers
                     'order_id' => $order->id,
                     'module_id' => $order->module_id,
                     'order_type' => $order->order_type,
+                    'zone_id' => $order->zone_id,
                     'image' => '',
                 ];
                 if ($order->store->sub_self_delivery) {
