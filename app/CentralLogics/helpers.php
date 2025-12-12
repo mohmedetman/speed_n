@@ -1657,22 +1657,22 @@ public static function send_order_notification($order)
                     }
                     self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
                     
-                    // Get all delivery men IDs who have this zone
+                    // Get all unique delivery men IDs who have this zone
                     $delivery_men_ids = DB::table('delivery_man_zones')
                         ->where('zone_id', $order->zone_id)
-                        ->where('is_active', true)
+                        // ->where('is_active', true)
+                        ->distinct()
                         ->pluck('delivery_man_id')
                         ->toArray();
                     
-                    // Get all active delivery men with those IDs
+                    // Get all active delivery men with those IDs and their fcm tokens
                     $delivery_men = \App\Models\DeliveryMan::active()
                         ->whereIn('id', $delivery_men_ids)
+                        ->whereNotNull('fcm_token')
                         ->get();
                     
                     foreach ($delivery_men as $dm) {
-                        if ($dm->fcm_token) {
-                            self::send_push_notif_to_device($dm->fcm_token, $data);
-                        }
+                        self::send_push_notif_to_device($dm->fcm_token, $data);
                     }
                 }
             }
@@ -1695,22 +1695,22 @@ public static function send_order_notification($order)
                 }
                 self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
                 
-                // Get all delivery men IDs who have this zone
+                // Get all unique delivery men IDs who have this zone
                 $delivery_men_ids = DB::table('delivery_man_zones')
                     ->where('zone_id', $order->zone_id)
-                    ->where('is_active', true)
+                    // ->where('is_active', true)
+                    ->distinct()
                     ->pluck('delivery_man_id')
                     ->toArray();
                 
-                // Get all active delivery men with those IDs
+                // Get all active delivery men with those IDs and their fcm tokens
                 $delivery_men = \App\Models\DeliveryMan::active()
                     ->whereIn('id', $delivery_men_ids)
+                    ->whereNotNull('fcm_token')
                     ->get();
                 
                 foreach ($delivery_men as $dm) {
-                    if ($dm->fcm_token) {
-                        self::send_push_notif_to_device($dm->fcm_token, $data);
-                    }
+                    self::send_push_notif_to_device($dm->fcm_token, $data);
                 }
             }
         }
@@ -1816,16 +1816,22 @@ public static function send_order_notification($order)
                     }
                     self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
                     
-                    // Get all delivery men who have this zone (including multi-zone)
+                    // Get all unique delivery men IDs who have this zone
+                    $delivery_men_ids = DB::table('delivery_man_zones')
+                        ->where('zone_id', $order->zone_id)
+                        // ->where('is_active', true)
+                        ->distinct()
+                        ->pluck('delivery_man_id')
+                        ->toArray();
+                    
+                    // Get all active delivery men with those IDs and their fcm tokens
                     $delivery_men = \App\Models\DeliveryMan::active()
-                        ->whereHas('zones', function ($q) use ($order) {
-                            $q->where('zone_id', $order->zone_id);
-                        })->get();
+                        ->whereIn('id', $delivery_men_ids)
+                        ->whereNotNull('fcm_token')
+                        ->get();
                     
                     foreach ($delivery_men as $dm) {
-                        if ($dm->fcm_token) {
-                            self::send_push_notif_to_device($dm->fcm_token, $data);
-                        }
+                        self::send_push_notif_to_device($dm->fcm_token, $data);
                     }
                 }
             }
