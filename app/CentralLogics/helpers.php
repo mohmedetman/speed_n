@@ -1549,7 +1549,7 @@ class Helpers
         }
     }
 
-  public static function send_order_notification($order)
+public static function send_order_notification($order)
 {
     $push_notification_status = self::getNotificationStatusData('store', 'store_order_notification', 'push_notification_status', $order?->store?->id);
 
@@ -1657,11 +1657,17 @@ class Helpers
                     }
                     self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
                     
-                    // Get all delivery men who have this zone (including multi-zone)
+                    // Get all delivery men IDs who have this zone
+                    $delivery_men_ids = DB::table('delivery_man_zones')
+                        ->where('zone_id', $order->zone_id)
+                        ->where('is_active', true)
+                        ->pluck('delivery_man_id')
+                        ->toArray();
+                    
+                    // Get all active delivery men with those IDs
                     $delivery_men = \App\Models\DeliveryMan::active()
-                        ->whereHas('zones', function ($q) use ($order) {
-                            $q->where('zone_id', $order->zone_id);
-                        })->get();
+                        ->whereIn('id', $delivery_men_ids)
+                        ->get();
                     
                     foreach ($delivery_men as $dm) {
                         if ($dm->fcm_token) {
@@ -1689,11 +1695,17 @@ class Helpers
                 }
                 self::send_push_notif_to_topic($data, $order->zone->deliveryman_wise_topic, 'order_request');
                 
-                // Get all delivery men who have this zone (including multi-zone)
+                // Get all delivery men IDs who have this zone
+                $delivery_men_ids = DB::table('delivery_man_zones')
+                    ->where('zone_id', $order->zone_id)
+                    ->where('is_active', true)
+                    ->pluck('delivery_man_id')
+                    ->toArray();
+                
+                // Get all active delivery men with those IDs
                 $delivery_men = \App\Models\DeliveryMan::active()
-                    ->whereHas('zones', function ($q) use ($order) {
-                        $q->where('zone_id', $order->zone_id);
-                    })->get();
+                    ->whereIn('id', $delivery_men_ids)
+                    ->get();
                 
                 foreach ($delivery_men as $dm) {
                     if ($dm->fcm_token) {
@@ -1853,7 +1865,6 @@ class Helpers
     }
     return false;
 }
-
     public static function day_part()
     {
         $part = "";
